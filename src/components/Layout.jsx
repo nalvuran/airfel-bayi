@@ -1,7 +1,7 @@
 import { useAuth } from '../contexts/AuthContext';
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 
 export default function Layout({ children }) {
   const { user, userRole } = useAuth();
@@ -43,9 +43,9 @@ export default function Layout({ children }) {
       </header>
       <nav style={{ background: 'white', borderBottom: '1px solid #e5e3df', padding: '0 24px', display: 'flex', gap: 4 }}>
         {links.map(item => (
-          <a key={item.path} href={item.path} style={{ padding: '14px 16px', fontSize: 13, fontWeight: 600, color: location.pathname === item.path ? '#BE1E2D' : '#4a4a4a', borderBottom: location.pathname === item.path ? '2px solid #BE1E2D' : '2px solid transparent', textDecoration: 'none' }}>
+          <Link key={item.path} to={item.path} style={{ padding: '14px 16px', fontSize: 13, fontWeight: 600, color: location.pathname === item.path ? '#BE1E2D' : '#4a4a4a', borderBottom: location.pathname === item.path ? '2px solid #BE1E2D' : '2px solid transparent', textDecoration: 'none' }}>
             {item.label}
-          </a>
+          </Link>
         ))}
       </nav>
       <main style={{ padding: 24 }}>

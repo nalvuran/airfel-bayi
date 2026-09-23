@@ -2,10 +2,16 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Login from './pages/Login';
 import Layout from './components/Layout';
+import SyncPage from './pages/SyncPage';
 
 function PrivateRoute({ children }) {
   const { user } = useAuth();
   return user ? children : <Navigate to="/login" />;
+}
+
+function AdminRoute({ children }) {
+  const { userRole } = useAuth();
+  return userRole === 'admin' ? children : <Navigate to="/" />;
 }
 
 function AppRoutes() {
@@ -28,8 +34,8 @@ function AppRoutes() {
                 <Route path="/dealers" element={<div style={{padding:20}}><h2>Bayiler — yakında</h2></div>} />
                 <Route path="/dashboard" element={<div style={{padding:20}}><h2>Dashboard — yakında</h2></div>} />
                 <Route path="/my-dealers" element={<div style={{padding:20}}><h2>Kayıtlarım — yakında</h2></div>} />
-                <Route path="/admin/users" element={<div style={{padding:20}}><h2>Kullanıcılar — yakında</h2></div>} />
-                <Route path="/admin/sync" element={<div style={{padding:20}}><h2>Veri Yükle — yakında</h2></div>} />
+                <Route path="/admin/users" element={<AdminRoute><div style={{padding:20}}><h2>Kullanıcılar — yakında</h2></div></AdminRoute>} />
+                <Route path="/admin/sync" element={<AdminRoute><SyncPage /></AdminRoute>} />
               </Routes>
             </Layout>
           </PrivateRoute>

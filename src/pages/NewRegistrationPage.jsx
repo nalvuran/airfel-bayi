@@ -7,6 +7,7 @@ import { fold, getDealerIndex } from '../utils/dealerIndex';
 import { coordsFromMapsUrl, getGpsPosition, isMapsLink, isShortMapsLink, mapsUrlFor } from '../utils/geo';
 import { createRegistration } from '../utils/registrations';
 import PhotoInput from '../components/PhotoInput';
+import { clearRegistrationsCache } from './RegistrationsPage';
 
 const C = {
   red: '#BE1E2D', redBg: '#fdf0f0', text: '#2b2b2b', muted: '#7a7570',
@@ -224,6 +225,7 @@ export default function NewRegistrationPage() {
           mapsUrl: loc.mapsUrl,
         },
       });
+      clearRegistrationsCache();
       navigate(`/dealers/${encodeURIComponent(dealer.i)}`, { state: { saved: true } });
     } catch (err) {
       setSaveError(err.code === 'permission-denied'

@@ -6,6 +6,7 @@ import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { addAfterPhotos } from '../utils/registrations';
 import PhotoInput from '../components/PhotoInput';
+import { clearRegistrationsCache } from './RegistrationsPage';
 
 const C = {
   red: '#BE1E2D', redBg: '#fdf0f0', text: '#2b2b2b', muted: '#7a7570',
@@ -117,6 +118,7 @@ function AfterPhotos({ r, onSaved }) {
     try {
       const toSave = Object.fromEntries(missing.map((s) => [s, photos[s]]));
       await addAfterPhotos(db, { regId: r.id, photos: toSave, user });
+      clearRegistrationsCache();
       setOpen(false); setPhotos({ exteriorAfter: null, interiorAfter: null });
       onSaved();
     } catch (e) {

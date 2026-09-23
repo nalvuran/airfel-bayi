@@ -6,7 +6,9 @@ import { collection, doc, getDocs, serverTimestamp, setDoc, updateDoc } from 'fi
 import app, { auth, db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { getDealerIndex } from '../utils/dealerIndex';
-import { Avatar, PageHeader } from '../components/ui';
+import { Alert, Avatar, PageHeader } from '../components/ui';
+import { removeRepPhoto, saveRepPhoto, titleCase, useRepProfiles } from '../utils/repProfiles';
+import { squareAvatar } from '../utils/image';
 
 const C = {
   red: 'var(--red)', redBg: 'var(--red-soft)', text: 'var(--ink)', muted: 'var(--muted)',
@@ -200,7 +202,7 @@ function CreateUser({ reps, takenBy, onCreated, adminEmail }) {
 
 /* ---------- Kullanıcı satırı ---------- */
 
-function UserRow({ u, reps, takenBy, isSelf, selfEmail, onChanged }) {
+function UserRow({ u, reps, takenBy, isSelf, selfEmail, onChanged, photoUrl }) {
   const [editing, setEditing] = useState(false);
   const [f, setF] = useState({ name: u.name || '', role: u.role || 'rep', salesRepKey: u.salesRepKey || '' });
   const [busy, setBusy] = useState(false);
@@ -247,7 +249,7 @@ function UserRow({ u, reps, takenBy, isSelf, selfEmail, onChanged }) {
     <div style={{ padding: '14px 16px', borderTop: `1px solid ${C.border}`, opacity: active ? 1 : 0.6 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <div style={{ display: 'flex', gap: 12, minWidth: 0 }}>
-          <Avatar name={u.name || u.email} size={40} />
+          <Avatar name={u.name || u.email} src={photoUrl} size={40} />
           <div style={{ minWidth: 0 }}>
           <div style={{ fontWeight: 800, fontSize: 15, color: C.text }}>
             {u.name || '(adsız)'} {isSelf && <span style={{ fontWeight: 400, color: C.muted }}>· sen</span>}
@@ -299,6 +301,77 @@ function UserRow({ u, reps, takenBy, isSelf, selfEmail, onChanged }) {
   );
 }
 
+/* ---------- Temsilci fotoğrafları ---------- */
+
+function RepPhotoRow({ rep, profile, hasAccount, adminEmail }) {
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
+  const name = profile?.name || titleCase(rep.name);
+
+  const onFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setBusy(true); setMsg(null);
+    try {
+      const photo = await squareAvatar(file);
+      URL.revokeObjectURL(photo.previewUrl);
+      await saveRepPhoto(db, { key: rep.key, name, photo, by: adminEmail });
+    } catch (err) {
+      setMsg(err.code === 'permission-denied' ? 'Kaydetme izni yok. Firestore kurallarını güncellediğinden emin ol.' : err.message);
+    } finally { setBusy(false); }
+  };
+
+  const onRemove = async () => {
+    if (!window.confirm(`${name} için fotoğraf kaldırılsın mı?`)) return;
+    setBusy(true); setMsg(null);
+    try { await removeRepPhoto(db, { key: rep.key, by: adminEmail }); } catch (err) { setMsg(err.message); } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="list-row">
+      <div className="row" style={{ flexWrap: 'nowrap', gap: 12 }}>
+        <Avatar name={name} src={profile?.url} size={48} />
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div className="list-row-title" style={{ whiteSpace: 'normal' }}>{name}</div>
+          <div className="list-row-meta">{rep.count} bayi{hasAccount ? '' : ' · hesabı yok'}</div>
+        </div>
+        <div className="row" style={{ gap: 14, flexWrap: 'nowrap' }}>
+          <label className="btn-link" style={{ cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.5 : 1 }}>
+            {busy ? 'Kaydediliyor…' : profile?.url ? 'Değiştir' : 'Fotoğraf ekle'}
+            <input type="file" accept="image/*" onChange={onFile} disabled={busy} style={{ display: 'none' }} />
+          </label>
+          {profile?.url && !busy && <button className="btn-link" style={{ color: 'var(--muted)' }} onClick={onRemove}>Kaldır</button>}
+        </div>
+      </div>
+      {msg && <Alert tone="danger" style={{ marginTop: 10 }}>{msg}</Alert>}
+    </div>
+  );
+}
+
+function RepPhotos({ reps, profiles, accountKeys, adminEmail }) {
+  if (!reps.length) return null;
+  const withPhoto = reps.filter((r) => profiles[r.key]?.url).length;
+  return (
+    <section className="card card-flush" style={{ marginTop: 16 }}>
+      <div style={{ padding: '16px 16px 12px' }}>
+        <div className="row" style={{ justifyContent: 'space-between' }}>
+          <h2 className="card-title">Temsilci fotoğrafları</h2>
+          <span className="text-sm" style={{ fontWeight: 700, color: withPhoto === reps.length ? 'var(--green)' : 'var(--muted)' }}>
+            {withPhoto} / {reps.length}
+          </span>
+        </div>
+        <div className="card-desc">
+          Fotoğraflar Dashboard'da, kayıtlarda ve ana sayfada görünür. Yüzün ortada olduğu bir fotoğraf seç; kare olarak kırpılır.
+        </div>
+      </div>
+      {reps.map((r) => (
+        <RepPhotoRow key={r.key} rep={r} profile={profiles[r.key]} hasAccount={accountKeys.has(r.key)} adminEmail={adminEmail} />
+      ))}
+    </section>
+  );
+}
+
 /* ---------- Sayfa ---------- */
 
 export default function UsersPage() {
@@ -307,6 +380,7 @@ export default function UsersPage() {
   const [index, setIndex] = useState(null);
   const [error, setError] = useState(null);
   const [reload, setReload] = useState(0);
+  const profiles = useRepProfiles(db);
 
   useEffect(() => {
     getDocs(collection(db, 'users'))
@@ -343,6 +417,7 @@ export default function UsersPage() {
     (a.name || a.email || '').localeCompare(b.name || b.email || '', 'tr')), [users]);
 
   const missingReps = reps.filter((r) => !takenBy[r.key]);
+  const accountKeys = new Set(Object.keys(takenBy));
 
   return (
     <div className="page-narrow" style={{ maxWidth: 900 }}>
@@ -364,7 +439,7 @@ export default function UsersPage() {
             )}
           </div>
           {sorted.map((u) => (
-            <UserRow key={u.id} u={u} reps={reps} takenBy={takenBy} isSelf={u.id === user?.uid} selfEmail={user?.email} onChanged={() => setReload((x) => x + 1)} />
+            <UserRow key={u.id} u={u} reps={reps} takenBy={takenBy} isSelf={u.id === user?.uid} selfEmail={user?.email} photoUrl={profiles[u.salesRepKey]?.url} onChanged={() => setReload((x) => x + 1)} />
           ))}
           {missingReps.length > 0 && (
             <div style={{ padding: '12px 16px', borderTop: `1px solid ${C.border}`, background: C.soft, fontSize: 13, color: C.muted }}>
@@ -373,6 +448,8 @@ export default function UsersPage() {
           )}
         </section>
       )}
+
+      <RepPhotos reps={reps} profiles={profiles} accountKeys={accountKeys} adminEmail={user?.email} />
     </div>
   );
 }

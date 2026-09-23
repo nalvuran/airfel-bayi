@@ -46,3 +46,30 @@ export async function compressImage(file) {
     URL.revokeObjectURL(url);
   }
 }
+
+// Profil fotoğrafı: ortadan kare kırpar, 320x320 JPEG'e küçültür (~15-30 KB)
+export async function squareAvatar(file, size = 320) {
+  if (!file.type.startsWith('image/') && !/\.(jpe?g|png|heic|heif|webp)$/i.test(file.name)) {
+    throw new Error('Seçilen dosya bir fotoğraf değil.');
+  }
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await loadImage(url);
+    const side = Math.min(img.naturalWidth, img.naturalHeight);
+    // Yüzler genelde fotoğrafın üst yarısında olur: dikey fotoğraflarda kırpmayı biraz yukarıdan başlat
+    const sx = (img.naturalWidth - side) / 2;
+    const sy = img.naturalHeight > img.naturalWidth ? (img.naturalHeight - side) * 0.25 : (img.naturalHeight - side) / 2;
+    const canvas = document.createElement('canvas');
+    canvas.width = size; canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, size, size);
+    ctx.drawImage(img, sx, sy, side, side, 0, 0, size, size);
+    let q = 0.82;
+    let blob = await toBlob(canvas, q);
+    while (blob && blob.size > 60 * 1024 && q > 0.5) { q -= 0.1; blob = await toBlob(canvas, q); }
+    if (!blob) throw new Error('Fotoğraf işlenemedi.');
+    return { bytes: new Uint8Array(await blob.arrayBuffer()), size: blob.size, previewUrl: URL.createObjectURL(blob) };
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}

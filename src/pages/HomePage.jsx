@@ -5,6 +5,7 @@ import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { getDealerIndex } from '../utils/dealerIndex';
 import { Avatar, fmtNum } from '../components/ui';
+import { useRepProfiles } from '../utils/repProfiles';
 
 function Action({ to, title, desc, primary }) {
   return (
@@ -23,6 +24,7 @@ export default function HomePage() {
   const isAdmin = userRole === 'admin';
   const myKey = userProfile?.salesRepKey;
   const [counts, setCounts] = useState(null);
+  const profiles = useRepProfiles(db);
 
   useEffect(() => {
     getDealerIndex(db).then(({ entries }) => {
@@ -37,7 +39,7 @@ export default function HomePage() {
   return (
     <div className="page-narrow">
       <div className="row" style={{ gap: 14, margin: '6px 0 22px', flexWrap: 'nowrap' }}>
-        <Avatar name={name} size={52} />
+        <Avatar name={name} src={myKey ? profiles[myKey]?.url : null} size={52} />
         <div style={{ minWidth: 0 }}>
           <h1 className="page-title">Merhaba, {firstName}</h1>
           <div className="page-subtitle">

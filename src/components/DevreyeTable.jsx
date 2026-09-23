@@ -4,6 +4,16 @@
 const YEARS = [['fy24', '2024'], ['fy25', '2025'], ['fy26', '2026']];
 const n = (v) => (v ?? 0).toLocaleString('tr-TR');
 
+// Bayi dizinindeki kısa biçimi ([kombi24, klima24, ...]) tablonun beklediği yapıya çevirir
+export function salesFromIndex(v) {
+  if (!Array.isArray(v)) return null;
+  return {
+    fy24: { cb: v[0], ac: v[1] },
+    fy25: { cb: v[2], ac: v[3] },
+    fy26: { cb: v[4], ac: v[5] },
+  };
+}
+
 function Dot({ color }) {
   return <span aria-hidden="true" style={{ display: 'inline-block', width: 9, height: 9, borderRadius: '50%', background: color, marginRight: 7, verticalAlign: 'middle' }} />;
 }

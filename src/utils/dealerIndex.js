@@ -20,6 +20,8 @@ export function toIndexEntry(id, d) {
     r: d.salesRep ?? '',
     k: d.salesRepKey ?? '',
     x: d.distributor ?? '',
+    // Devreye alım: [kombi24, klima24, kombi25, klima25, kombi26, klima26] (CB = kombi, AC = klima)
+    v: ['fy24', 'fy25', 'fy26'].flatMap((y) => [d.sales?.[y]?.cb ?? 0, d.sales?.[y]?.ac ?? 0]),
   };
 }
 
@@ -85,6 +87,7 @@ export async function loadDealerIndex(db) {
   const docs = snap.docs.map((d) => d.data()).sort((a, b) => a.part - b.part);
   if (docs.length !== docs[0].parts) throw new Error('Bayi dizini eksik görünüyor. Veri Yükle sayfasından dizini yeniden oluştur.');
   const entries = docs.flatMap((d) => JSON.parse(d.json)).map((e) => ({
+    v: null, // eski dizinde devreye alım rakamları yok; dizin yeniden oluşturulunca gelir
     ...e,
     search: fold(`${e.n} ${e.i} ${e.d} ${e.c}`),
   }));

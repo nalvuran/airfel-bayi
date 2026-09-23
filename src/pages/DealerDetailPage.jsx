@@ -1,8 +1,11 @@
 // src/pages/DealerDetailPage.jsx
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
+import { useAuth } from '../contexts/AuthContext';
+import { addAfterPhotos } from '../utils/registrations';
+import PhotoInput from '../components/PhotoInput';
 
 const C = {
   red: '#BE1E2D', redBg: '#fdf0f0', text: '#2b2b2b', muted: '#7a7570',
@@ -97,9 +100,61 @@ function Lightbox({ photo, onClose }) {
   );
 }
 
+/* ---------- Sonrası fotoğrafları ---------- */
+
+function AfterPhotos({ r, onSaved }) {
+  const { user } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [photos, setPhotos] = useState({ exteriorAfter: null, interiorAfter: null });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const missing = ['exteriorAfter', 'interiorAfter'].filter((s) => !r.photoFiles?.[s] && !r.photos?.[s]);
+  if (!missing.length) return null;
+
+  const save = async () => {
+    if (!missing.some((s) => photos[s])) { setError('En az bir fotoğraf ekle.'); return; }
+    setSaving(true); setError('');
+    try {
+      const toSave = Object.fromEntries(missing.map((s) => [s, photos[s]]));
+      await addAfterPhotos(db, { regId: r.id, photos: toSave, user });
+      setOpen(false); setPhotos({ exteriorAfter: null, interiorAfter: null });
+      onSaved();
+    } catch (e) {
+      setError(e.code === 'permission-denied' ? 'Bu kayda fotoğraf ekleme iznin yok.' : `Kaydedilemedi: ${e.message}`);
+    } finally { setSaving(false); }
+  };
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} style={{ marginTop: 14, background: 'white', border: `1.5px solid ${C.border}`, borderRadius: 8, padding: '9px 14px', fontSize: 14, fontWeight: 600, color: C.text, cursor: 'pointer' }}>
+        + Sonrası fotoğraf ekle (tabela / stant kurulumu)
+      </button>
+    );
+  }
+  return (
+    <div style={{ marginTop: 14, background: C.soft, borderRadius: 10, padding: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+        {missing.map((s) => (
+          <PhotoInput key={s} label={SLOT_LABEL[s]} value={photos[s]} disabled={saving}
+            onChange={(p) => setPhotos((x) => ({ ...x, [s]: p }))} />
+        ))}
+      </div>
+      {error && <div style={{ color: C.red, fontSize: 13, marginTop: 10 }}>{error}</div>}
+      <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+        <button onClick={save} disabled={saving} style={{ background: saving ? '#d9d5d0' : C.red, color: 'white', border: 'none', borderRadius: 8, padding: '10px 16px', fontSize: 14, fontWeight: 600, cursor: saving ? 'wait' : 'pointer' }}>
+          {saving ? 'Kaydediliyor…' : 'Fotoğrafları kaydet'}
+        </button>
+        <button onClick={() => { setOpen(false); setError(''); }} disabled={saving} style={{ background: 'white', border: `1.5px solid ${C.border}`, borderRadius: 8, padding: '10px 16px', fontSize: 14, cursor: 'pointer' }}>
+          Vazgeç
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /* ---------- Saha kaydı ---------- */
 
-function Registration({ r, onOpen }) {
+function Registration({ r, onOpen, canEdit, onChanged }) {
   const loc = r.location ? `https://www.google.com/maps?q=${r.location.lat},${r.location.lng}` : r.mapsUrl;
   const slots = Object.keys(SLOT_LABEL).filter((s) => r.photos?.[s] || r.photoFiles?.[s]);
   const yes = (v) => (v === true ? 'Evet' : v === false ? 'Hayır' : '-');
@@ -111,6 +166,7 @@ function Registration({ r, onOpen }) {
           <div style={{ fontWeight: 600, fontSize: 14 }}>{fmtDate(r.createdAt, true)}</div>
           <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>
             {r.salesRep}{r.source === 'legacySheets' && ' · eski sistemden'}
+            {r.afterPhotosAt && ` · sonrası fotoğrafı ${fmtDate(r.afterPhotosAt)}`}
           </div>
         </div>
         {r.needsReview && (
@@ -142,6 +198,7 @@ function Registration({ r, onOpen }) {
           ))}
         </div>
       )}
+      {canEdit && <AfterPhotos r={r} onSaved={onChanged} />}
     </div>
   );
 }
@@ -150,6 +207,10 @@ function Registration({ r, onOpen }) {
 
 export default function DealerDetailPage() {
   const { id } = useParams();
+  const { user, userRole, userProfile } = useAuth();
+  const location = useLocation();
+  const [justSaved] = useState(!!location.state?.saved);
+  const [reload, setReload] = useState(0);
   const [dealer, setDealer] = useState(undefined);
   const [regs, setRegs] = useState(null);
   const [error, setError] = useState(null);
@@ -157,7 +218,7 @@ export default function DealerDetailPage() {
 
   useEffect(() => {
     let cancelled = false;
-    setDealer(undefined); setRegs(null); setError(null);
+    setError(null);
     Promise.all([
       getDoc(doc(db, 'dealers', id)),
       getDocs(query(collection(db, 'registrations'), where('dealerId', '==', id))),
@@ -168,7 +229,10 @@ export default function DealerDetailPage() {
         .sort((a, b) => (toDate(b.createdAt)?.getTime() ?? 0) - (toDate(a.createdAt)?.getTime() ?? 0)));
     }).catch((e) => { if (!cancelled) setError(e.message); });
     return () => { cancelled = true; };
-  }, [id]);
+  }, [id, reload]);
+
+  const canEdit = (r) => userRole === 'admin' || r.createdByUid === user?.uid ||
+    (!!userProfile?.salesRepKey && r.salesRepKey === userProfile.salesRepKey);
 
   const back = <Link to="/dealers" style={{ color: C.red, fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>← Bayiler</Link>;
 
@@ -246,10 +310,23 @@ export default function DealerDetailPage() {
       )}
 
       <section style={card}>
-        <h2 style={{ ...h2, marginBottom: 0 }}>Saha kayıtları {regs && `(${regs.length})`}</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <h2 style={{ ...h2, marginBottom: 0 }}>Saha kayıtları {regs && `(${regs.length})`}</h2>
+          <Link to={`/registrations/new?dealer=${encodeURIComponent(id)}`}
+            style={{ background: C.red, color: 'white', borderRadius: 8, padding: '9px 14px', fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>
+            + Yeni kayıt ekle
+          </Link>
+        </div>
+        {justSaved && (
+          <div style={{ background: C.okBg, color: C.ok, borderRadius: 8, padding: '10px 14px', fontSize: 14, marginTop: 12 }}>
+            ✓ Kayıt kaydedildi.
+          </div>
+        )}
         {regs === null && <p style={{ color: C.muted, fontSize: 14 }}>Yükleniyor…</p>}
         {regs?.length === 0 && <p style={{ color: C.muted, fontSize: 14, marginBottom: 0 }}>Bu bayi için henüz saha kaydı yok.</p>}
-        {regs?.map((r) => <Registration key={r.id} r={r} onOpen={setLightbox} />)}
+        {regs?.map((r) => (
+          <Registration key={r.id} r={r} onOpen={setLightbox} canEdit={canEdit(r)} onChanged={() => setReload((x) => x + 1)} />
+        ))}
       </section>
 
       <Lightbox photo={lightbox} onClose={() => setLightbox(null)} />

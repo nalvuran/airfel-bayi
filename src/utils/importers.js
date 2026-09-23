@@ -2,6 +2,7 @@
 // Excel dosyalarını okuyup Firestore'a yazılacak kayıtlara dönüştürür.
 // Firebase'e bağımlı değildir; sadece düz JS nesneleri üretir.
 import * as XLSX from 'xlsx';
+import { coordsFromMapsUrl } from './geo';
 
 /* ---------- yardımcılar ---------- */
 
@@ -196,25 +197,8 @@ const yesNo = (v) => {
   return null;
 };
 
-// Google Maps linkinden koordinat çıkarmaya çalışır; kısa linkler (goo.gl) çözülemez
-export function coordsFromMapsUrl(url) {
-  if (!url) return null;
-  let u = String(url);
-  try { u = decodeURIComponent(u); } catch { /* bozuk kodlama: olduğu gibi dene */ }
-  const pats = [
-    /!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/,
-    /[?&](?:q|query|ll)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/,
-    /@(-?\d+\.\d+),(-?\d+\.\d+)/,
-  ];
-  for (const p of pats) {
-    const m = u.match(p);
-    if (m) {
-      const lat = +m[1], lng = +m[2];
-      if (Math.abs(lat) <= 90 && Math.abs(lng) <= 180) return { lat, lng };
-    }
-  }
-  return null;
-}
+// Konum yardımcıları ortak dosyada; eski kodların kırılmaması için buradan da dışa veriliyor
+export { coordsFromMapsUrl };
 
 const normPhone = (v) => {
   if (v == null) return null;

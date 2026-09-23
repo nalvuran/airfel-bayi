@@ -14,6 +14,7 @@ export default function Layout({ children }) {
   const adminLinks = [
     { label: 'Ana Sayfa', path: '/' },
     { label: 'Bayiler', path: '/dealers' },
+    { label: 'Yeni Kayıt', path: '/registrations/new' },
     { label: 'Dashboard', path: '/dashboard' },
     { label: 'Kullanicilar', path: '/admin/users' },
     { label: 'Veri Yukle', path: '/admin/sync' },
@@ -22,6 +23,7 @@ export default function Layout({ children }) {
   const repLinks = [
     { label: 'Ana Sayfa', path: '/' },
     { label: 'Bayiler', path: '/dealers' },
+    { label: 'Yeni Kayıt', path: '/registrations/new' },
     { label: 'Kayitlarim', path: '/my-dealers' },
   ];
 

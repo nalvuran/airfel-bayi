@@ -7,21 +7,22 @@ import {
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { parseCustomerData, parseLegacy } from '../utils/importers';
+import { PageHeader } from '../components/ui';
 import { toIndexEntry, writeDealerIndex, rebuildDealerIndexFromFirestore, clearDealerIndexCache } from '../utils/dealerIndex';
 
 const C = {
-  red: '#B91724', redBg: '#fdf0f0', text: '#2b2b2b', muted: '#7a7570',
-  border: '#e5e3df', ok: '#1f7a4d', okBg: '#eaf6ef', warn: '#9a6400', warnBg: '#fff6e0',
+  red: 'var(--red)', redBg: 'var(--red-soft)', text: 'var(--ink)', muted: 'var(--muted)',
+  border: 'var(--border)', soft: 'var(--surface-2)', ok: 'var(--green)', okBg: 'var(--green-soft)', warn: 'var(--amber)', warnBg: 'var(--amber-soft)',
 };
 const BATCH_SIZE = 400;
 
-const card = { background: 'white', border: `1px solid ${C.border}`, borderRadius: 12, padding: 24, marginBottom: 24 };
+const card = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: 'var(--shadow)', padding: 20, marginBottom: 16 };
 const btn = (primary, disabled) => ({
-  background: disabled ? '#d9d5d0' : primary ? C.red : 'white',
-  color: primary || disabled ? 'white' : C.text,
-  border: primary || disabled ? 'none' : `1.5px solid ${C.border}`,
-  borderRadius: 8, padding: '10px 18px', fontSize: 14, fontWeight: 600,
-  cursor: disabled ? 'not-allowed' : 'pointer',
+  background: disabled ? '#DCD8D3' : primary ? 'var(--red)' : 'var(--surface)',
+  color: primary || disabled ? '#fff' : 'var(--ink)',
+  border: `1.5px solid ${disabled ? '#DCD8D3' : primary ? 'var(--red)' : 'var(--border)'}`,
+  borderRadius: 10, padding: '10px 16px', fontSize: 14, fontWeight: 800,
+  cursor: disabled ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap',
 });
 
 async function writeInBatches(coll, items, { merge, extra }, onProgress) {
@@ -142,7 +143,7 @@ function CustomerDataSection({ user }) {
   const s = parsed?.stats;
   return (
     <section style={card}>
-      <h2 style={{ fontSize: 18, margin: 0, color: C.text }}>Bayi listesini güncelle</h2>
+      <h2 className="card-title">Bayi listesini güncelle</h2>
       <p style={{ fontSize: 14, color: C.muted, margin: '6px 0 16px' }}>
         Customer Data Excel dosyasını seç. Mevcut bayiler güncellenir, yeniler eklenir; uygulamada girilen diğer bilgiler silinmez.
       </p>
@@ -254,7 +255,7 @@ function LegacySection({ user }) {
 
   return (
     <section style={card}>
-      <h2 style={{ fontSize: 18, margin: 0, color: C.text }}>Eski sistemden kayıt aktar</h2>
+      <h2 className="card-title">Eski sistemden kayıt aktar</h2>
       <p style={{ fontSize: 14, color: C.muted, margin: '6px 0 16px' }}>
         Google Sheets'teki eski saha kayıtlarının Excel çıktısını seç. Her satır ayrı bir kayıt olarak aktarılır, hiçbiri birleştirilmez veya atlanmaz. Aktarım tekrar çalıştırılırsa zaten içeride olan kayıtlar yeniden yazılmaz.
       </p>
@@ -340,7 +341,7 @@ function IndexSection() {
   };
   return (
     <section style={card}>
-      <h2 style={{ fontSize: 18, margin: 0, color: C.text }}>Bayi dizinini oluştur</h2>
+      <h2 className="card-title">Bayi dizinini oluştur</h2>
       <p style={{ fontSize: 14, color: C.muted, margin: '6px 0 16px' }}>
         Bayiler sayfası, hızlı açılması için bayilerin özetini tek bir dizinden okur. Bayi listesi yüklendiğinde dizin kendiliğinden güncellenir; bu butona sadece dizin eksik ya da bozuk görünürse ihtiyaç var.
       </p>
@@ -355,8 +356,8 @@ function IndexSection() {
 export default function SyncPage() {
   const { user } = useAuth();
   return (
-    <div style={{ maxWidth: 900, margin: '0 auto', textAlign: 'left' }}>
-      <h1 style={{ fontSize: 24, color: C.text, margin: '8px 0 20px' }}>Veri yükle</h1>
+    <div className="page-narrow" style={{ maxWidth: 900 }}>
+      <PageHeader title="Veri yükle" />
       <CustomerDataSection user={user} />
       <LegacySection user={user} />
       <IndexSection />

@@ -6,27 +6,28 @@ import { collection, doc, getDocs, serverTimestamp, setDoc, updateDoc } from 'fi
 import app, { auth, db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { getDealerIndex } from '../utils/dealerIndex';
+import { Avatar, PageHeader } from '../components/ui';
 
 const C = {
-  red: '#B91724', redBg: '#fdf0f0', text: '#2b2b2b', muted: '#7a7570',
-  border: '#e5e3df', soft: '#f8f7f5', ok: '#1f7a4d', okBg: '#eaf6ef', warn: '#9a6400', warnBg: '#fff6e0',
+  red: 'var(--red)', redBg: 'var(--red-soft)', text: 'var(--ink)', muted: 'var(--muted)',
+  border: 'var(--border)', soft: 'var(--surface-2)', ok: 'var(--green)', okBg: 'var(--green-soft)', warn: 'var(--amber)', warnBg: 'var(--amber-soft)',
 };
 const ROLES = { admin: 'Yönetici', rep: 'Temsilci' };
 
-const card = { background: 'white', border: `1px solid ${C.border}`, borderRadius: 12, padding: 20, marginBottom: 16 };
+const card = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: 'var(--shadow)', padding: 20, marginBottom: 16 };
 const input = {
-  border: `1.5px solid ${C.border}`, borderRadius: 8, padding: '9px 12px', fontSize: 14,
-  background: 'white', color: C.text, width: '100%', boxSizing: 'border-box',
+  border: '1.5px solid var(--border)', borderRadius: 8, padding: '10px 12px', fontSize: 15,
+  background: 'var(--surface)', color: 'var(--ink)', width: '100%', boxSizing: 'border-box',
 };
-const label = { display: 'block', fontSize: 12, color: C.muted, marginBottom: 4, fontWeight: 600 };
+const label = { display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 4, fontWeight: 700 };
 const btn = (primary, disabled) => ({
-  background: disabled ? '#d9d5d0' : primary ? C.red : 'white',
-  color: primary || disabled ? 'white' : C.text,
-  border: primary || disabled ? 'none' : `1.5px solid ${C.border}`,
-  borderRadius: 8, padding: '9px 16px', fontSize: 14, fontWeight: 600,
+  background: disabled ? '#DCD8D3' : primary ? 'var(--red)' : 'var(--surface)',
+  color: primary || disabled ? '#fff' : 'var(--ink)',
+  border: `1.5px solid ${disabled ? '#DCD8D3' : primary ? 'var(--red)' : 'var(--border)'}`,
+  borderRadius: 10, padding: '10px 16px', fontSize: 14, fontWeight: 800,
   cursor: disabled ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap',
 });
-const linkBtn = { background: 'none', border: 'none', padding: 0, color: C.red, fontSize: 13, fontWeight: 600, cursor: 'pointer' };
+const linkBtn = { background: 'none', border: 'none', padding: 0, color: 'var(--red)', fontSize: 13, fontWeight: 800, cursor: 'pointer' };
 
 const AUTH_ERRORS = {
   'auth/email-already-in-use': 'Bu e-posta ile zaten bir hesap var. Firebase Console > Authentication bölümünden kontrol et.',
@@ -158,7 +159,7 @@ function CreateUser({ reps, takenBy, onCreated, adminEmail }) {
   return (
     <section style={card}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-        <h2 style={{ fontSize: 17, margin: '0 0 4px', color: C.text }}>Yeni kullanıcı</h2>
+        <h2 className="card-title">Yeni kullanıcı</h2>
         <button style={linkBtn} onClick={() => { setOpen(false); setMsg(null); }}>Kapat</button>
       </div>
       <p style={{ fontSize: 13, color: C.muted, margin: '0 0 16px' }}>
@@ -245,8 +246,10 @@ function UserRow({ u, reps, takenBy, isSelf, selfEmail, onChanged }) {
   return (
     <div style={{ padding: '14px 16px', borderTop: `1px solid ${C.border}`, opacity: active ? 1 : 0.6 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontWeight: 600, fontSize: 14, color: C.text }}>
+        <div style={{ display: 'flex', gap: 12, minWidth: 0 }}>
+          <Avatar name={u.name || u.email} size={40} />
+          <div style={{ minWidth: 0 }}>
+          <div style={{ fontWeight: 800, fontSize: 15, color: C.text }}>
             {u.name || '(adsız)'} {isSelf && <span style={{ fontWeight: 400, color: C.muted }}>· sen</span>}
           </div>
           <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>{u.email || (isSelf && selfEmail) || u.id}</div>
@@ -254,6 +257,7 @@ function UserRow({ u, reps, takenBy, isSelf, selfEmail, onChanged }) {
             <span style={{ fontWeight: 700, color: u.role === 'admin' ? C.red : C.text }}>{ROLES[u.role] || u.role || 'Rol yok'}</span>
             {' · '}{repName ? `Temsilci adı: ${repName}` : 'Temsilci adı bağlı değil'}
             {!active && <span style={{ color: C.red, fontWeight: 700 }}> · Pasif</span>}
+          </div>
           </div>
         </div>
         {!editing && (
@@ -341,8 +345,8 @@ export default function UsersPage() {
   const missingReps = reps.filter((r) => !takenBy[r.key]);
 
   return (
-    <div style={{ textAlign: 'left', maxWidth: 900, margin: '0 auto' }}>
-      <h1 style={{ fontSize: 24, color: C.text, margin: '4px 0 16px' }}>Kullanıcılar</h1>
+    <div className="page-narrow" style={{ maxWidth: 900 }}>
+      <PageHeader title="Kullanıcılar" />
 
       <CreateUser reps={reps} takenBy={takenBy} adminEmail={user?.email} onCreated={() => setReload((x) => x + 1)} />
 
@@ -352,7 +356,7 @@ export default function UsersPage() {
       {users && (
         <section style={{ ...card, padding: 0, overflow: 'hidden' }}>
           <div style={{ padding: '14px 16px', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-            <h2 style={{ fontSize: 17, margin: 0, color: C.text }}>Hesaplar ({users.length})</h2>
+            <h2 className="card-title">Hesaplar ({users.length})</h2>
             {reps.length > 0 && (
               <span style={{ fontSize: 13, color: missingReps.length ? C.warn : C.ok }}>
                 {missingReps.length ? `${missingReps.length} temsilcinin hesabı yok` : 'Tüm temsilcilerin hesabı var'}

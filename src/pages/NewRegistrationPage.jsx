@@ -7,20 +7,10 @@ import { fold, getDealerIndex } from '../utils/dealerIndex';
 import { coordsFromMapsUrl, getGpsPosition, isMapsLink, isShortMapsLink, mapsUrlFor } from '../utils/geo';
 import { createRegistration } from '../utils/registrations';
 import PhotoInput from '../components/PhotoInput';
+import { Alert, Card, PageHeader, Skeleton } from '../components/ui';
 import { clearRegistrationsCache } from './RegistrationsPage';
 
-const C = {
-  red: '#B91724', redBg: '#fdf0f0', text: '#2b2b2b', muted: '#7a7570',
-  border: '#e5e3df', soft: '#f8f7f5', ok: '#1f7a4d', okBg: '#eaf6ef', warn: '#9a6400', warnBg: '#fff6e0',
-};
-const card = { background: 'white', border: `1px solid ${C.border}`, borderRadius: 12, padding: 18, marginBottom: 14 };
-const h2 = { fontSize: 16, margin: '0 0 12px', color: C.text };
-const input = {
-  border: `1.5px solid ${C.border}`, borderRadius: 8, padding: '11px 12px', fontSize: 16, // 16px: iPhone'da zoom yapmasın
-  background: 'white', color: C.text, width: '100%', boxSizing: 'border-box',
-};
-const lbl = { display: 'block', fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 6 };
-const req = <span style={{ color: C.red }}> *</span>;
+const Req = () => <span className="req"> *</span>;
 
 /* ---------- Bayi seçici ---------- */
 
@@ -37,32 +27,26 @@ function DealerPicker({ entries, value, onChange, myKey }) {
 
   if (value) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', background: C.soft, borderRadius: 8, padding: '12px 14px' }}>
+      <div className="row" style={{ justifyContent: 'space-between', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px', flexWrap: 'nowrap' }}>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 15 }}>{value.n}</div>
-          <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>{value.i} · {[value.d, value.c].filter(Boolean).join(', ')}</div>
+          <div style={{ fontWeight: 800, fontSize: 15 }}>{value.n}</div>
+          <div className="text-sm muted" style={{ marginTop: 2 }}>{value.i} · {[value.d, value.c].filter(Boolean).join(', ')}</div>
         </div>
-        <button type="button" onClick={() => { onChange(null); setQ(''); }} style={{ background: 'none', border: 'none', color: C.red, fontWeight: 600, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-          Değiştir
-        </button>
+        <button type="button" className="btn-link" onClick={() => { onChange(null); setQ(''); }}>Değiştir</button>
       </div>
     );
   }
   return (
     <div>
-      <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Bayi adı, Platform ID veya ilçe yaz" style={input} autoFocus />
-      {q && results.length === 0 && <div style={{ fontSize: 13, color: C.muted, marginTop: 8 }}>Eşleşen bayi yok. Kayıt sadece listedeki bayilere girilebilir.</div>}
+      <input type="search" className="input input-lg" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Bayi adı, Platform ID veya ilçe yaz" autoFocus />
+      {q && results.length === 0 && <div className="text-sm muted mt-8">Eşleşen bayi yok. Kayıt sadece listedeki bayilere girilebilir.</div>}
       {results.length > 0 && (
-        <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, marginTop: 8, overflow: 'hidden' }}>
-          {results.map((e, i) => (
-            <button
-              type="button" key={e.i} onClick={() => onChange(e)}
-              style={{ display: 'block', width: '100%', textAlign: 'left', background: 'white', border: 'none', borderTop: i ? `1px solid ${C.border}` : 'none', padding: '11px 12px', cursor: 'pointer', color: C.text }}
-            >
-              <div style={{ fontWeight: 600, fontSize: 14 }}>{e.n}</div>
-              <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
-                {e.i} · {[e.d, e.c].filter(Boolean).join(', ')} · {e.k === myKey ? 'senin bayin' : e.r}
-              </div>
+        <div className="card card-flush mt-8" style={{ boxShadow: 'none' }}>
+          {results.map((e) => (
+            <button type="button" key={e.i} onClick={() => onChange(e)} className="list-row"
+              style={{ width: '100%', textAlign: 'left', background: 'var(--surface)', border: 'none', borderTop: '1px solid var(--border)', cursor: 'pointer' }}>
+              <div className="list-row-title" style={{ fontSize: 14 }}>{e.n}</div>
+              <div className="list-row-meta">{e.i} · {[e.d, e.c].filter(Boolean).join(', ')} · {e.k === myKey ? 'senin bayin' : e.r}</div>
             </button>
           ))}
         </div>
@@ -71,20 +55,21 @@ function DealerPicker({ entries, value, onChange, myKey }) {
   );
 }
 
-/* ---------- Evet / Hayır ---------- */
+/* ---------- Evet / Hayır: seçili Evet yeşil, seçili Hayır kırmızı ---------- */
 
 function YesNo({ label, value, onChange }) {
   const b = (active, yes) => {
-    const fg = yes ? C.ok : C.red;
-    const bg = yes ? C.okBg : C.redBg;
+    const fg = yes ? 'var(--green)' : 'var(--danger)';
+    const bg = yes ? 'var(--green-soft)' : 'var(--danger-soft)';
     return {
-      flex: 1, padding: '11px 0', fontSize: 15, fontWeight: 600, cursor: 'pointer', borderRadius: 8,
-      border: `1.5px solid ${active ? fg : C.border}`, background: active ? bg : 'white', color: active ? fg : C.text,
+      flex: 1, padding: '11px 0', fontSize: 15, fontWeight: 800, cursor: 'pointer', borderRadius: 10,
+      border: `1.5px solid ${active ? fg : 'var(--border)'}`, background: active ? bg : 'var(--surface)', color: active ? fg : 'var(--ink)',
+      transition: 'background-color .15s, border-color .15s, color .15s',
     };
   };
   return (
     <div>
-      <span style={lbl}>{label}{req}</span>
+      <span className="label">{label}<Req /></span>
       <div style={{ display: 'flex', gap: 10 }}>
         <button type="button" style={b(value === true, true)} onClick={() => onChange(true)} aria-pressed={value === true}>Evet</button>
         <button type="button" style={b(value === false, false)} onClick={() => onChange(false)} aria-pressed={value === false}>Hayır</button>
@@ -98,12 +83,11 @@ function YesNo({ label, value, onChange }) {
 const fmtPhoneRest = (d) => [d.slice(0, 2), d.slice(2, 5), d.slice(5, 7), d.slice(7, 9)].filter(Boolean).join(' ');
 
 function PhoneInput({ value, onChange }) {
-  // value: "05" sonrası en fazla 9 rakam
   return (
-    <div style={{ display: 'flex', alignItems: 'stretch', border: `1.5px solid ${C.border}`, borderRadius: 8, background: 'white', overflow: 'hidden' }}>
-      <span style={{ display: 'flex', alignItems: 'center', padding: '0 4px 0 12px', fontSize: 16, fontWeight: 600, color: C.text, userSelect: 'none' }}>05</span>
+    <div style={{ display: 'flex', alignItems: 'stretch', border: '1.5px solid var(--border)', borderRadius: 8, background: 'var(--surface)', overflow: 'hidden' }}>
+      <span style={{ display: 'flex', alignItems: 'center', padding: '0 4px 0 14px', fontSize: 16, fontWeight: 800, userSelect: 'none' }}>05</span>
       <input
-        type="tel" inputMode="numeric" autoComplete="off"
+        type="tel" inputMode="numeric" autoComplete="off" className="input input-lg"
         value={fmtPhoneRest(value)}
         onChange={(e) => {
           let d = e.target.value.replace(/\D/g, '');
@@ -112,7 +96,7 @@ function PhoneInput({ value, onChange }) {
           onChange(d.slice(0, 9));
         }}
         placeholder="XX XXX XX XX"
-        style={{ ...input, border: 'none', borderRadius: 0, paddingLeft: 2 }}
+        style={{ border: 'none', borderRadius: 0, paddingLeft: 2 }}
       />
     </div>
   );
@@ -144,35 +128,27 @@ function LocationInput({ value, onChange }) {
     else onChange(null);
   };
 
-  const status = () => {
-    if (!value) {
-      if (link.trim()) return { tone: C.red, text: 'Bu bir Google Maps linki gibi görünmüyor.' };
-      return null;
-    }
-    if (value.locationSource === 'gps') return { tone: C.ok, text: `✓ GPS konumu alındı (±${value.locationAccuracy} m)` };
-    if (value.location) return { tone: C.ok, text: '✓ Linkten konum okundu' };
-    return {
-      tone: C.warn,
-      text: isShortMapsLink(value.mapsUrl)
-        ? 'Link kaydedilecek. Kısa linkten koordinat okunamıyor; haritada gösterim için link kullanılacak.'
-        : 'Link kaydedilecek, ama içinden koordinat okunamadı.',
-    };
+  let status = null;
+  if (!value && link.trim()) status = { tone: 'danger', text: 'Bu bir Google Maps linki gibi görünmüyor.' };
+  else if (value?.locationSource === 'gps') status = { tone: 'success', text: `✓ GPS konumu alındı (±${value.locationAccuracy} m)` };
+  else if (value?.location) status = { tone: 'success', text: '✓ Linkten konum okundu' };
+  else if (value) status = {
+    tone: 'warn',
+    text: isShortMapsLink(value.mapsUrl)
+      ? 'Link kaydedilecek. Kısa linkten koordinat okunamıyor; haritada gösterim için link kullanılacak.'
+      : 'Link kaydedilecek, ama içinden koordinat okunamadı.',
   };
-  const st = status();
 
   return (
     <div>
-      <button type="button" onClick={useGps} disabled={busy}
-        style={{ width: '100%', padding: '12px 0', fontSize: 15, fontWeight: 600, borderRadius: 8, cursor: busy ? 'wait' : 'pointer', border: `1.5px solid ${C.border}`, background: 'white', color: C.text }}>
+      <button type="button" className="btn btn-secondary btn-block btn-lg" onClick={useGps} disabled={busy}>
         {busy ? 'Konum alınıyor…' : '📍 Şu anki konumumu kullan'}
       </button>
-      <div style={{ textAlign: 'center', fontSize: 12, color: C.muted, margin: '10px 0' }}>ya da</div>
-      <input type="url" value={link} onChange={(e) => onLink(e.target.value)} placeholder="Google Maps linkini yapıştır" style={input} />
-      {st && <div style={{ fontSize: 13, color: st.tone, marginTop: 8 }}>{st.text}</div>}
-      {value?.mapsUrl && (
-        <a href={value.mapsUrl} target="_blank" rel="noreferrer" style={{ display: 'inline-block', fontSize: 13, color: C.red, marginTop: 6 }}>Haritada kontrol et</a>
-      )}
-      {error && <div style={{ fontSize: 13, color: C.red, marginTop: 8 }}>{error}</div>}
+      <div className="text-xs muted" style={{ textAlign: 'center', margin: '10px 0', fontWeight: 700 }}>ya da</div>
+      <input type="url" className="input input-lg" value={link} onChange={(e) => onLink(e.target.value)} placeholder="Google Maps linkini yapıştır" />
+      {status && <Alert tone={status.tone} style={{ marginTop: 10, padding: '9px 12px', fontSize: 13 }}>{status.text}</Alert>}
+      {value?.mapsUrl && <a href={value.mapsUrl} target="_blank" rel="noreferrer" className="btn-link text-sm" style={{ display: 'inline-block', marginTop: 8 }}>Haritada kontrol et</a>}
+      {error && <Alert tone="danger" style={{ marginTop: 10, fontSize: 13 }}>{error}</Alert>}
     </div>
   );
 }
@@ -199,6 +175,12 @@ export default function NewRegistrationPage() {
     getDealerIndex(db).then(setIndex).catch((e) => setLoadError(e.message));
   }, []);
 
+  const set = (k) => (v) => setF((x) => ({ ...x, [k]: v }));
+  const pickDealer = (e) => {
+    setDealer(e);
+    if (e) setF((x) => ({ ...x, companyTitle: x.companyTitle || e.n, distributor: x.distributor || e.x }));
+  };
+
   // Bayi detayından gelindiyse bayiyi otomatik seç
   useEffect(() => {
     const id = params.get('dealer');
@@ -207,12 +189,6 @@ export default function NewRegistrationPage() {
       if (e) pickDealer(e);
     }
   }, [index]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const set = (k) => (v) => setF((x) => ({ ...x, [k]: v }));
-  const pickDealer = (e) => {
-    setDealer(e);
-    if (e) setF((x) => ({ ...x, companyTitle: x.companyTitle || e.n, distributor: x.distributor || e.x }));
-  };
 
   const validate = () => {
     const e = [];
@@ -232,7 +208,7 @@ export default function NewRegistrationPage() {
   const submit = async () => {
     const e = validate();
     setErrors(e); setSaveError('');
-    if (e.length) { window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }); return; }
+    if (e.length) { window.scrollTo({ top: document.body.scrollHeight }); return; }
     setSaving(true);
     try {
       await createRegistration(db, {
@@ -265,79 +241,66 @@ export default function NewRegistrationPage() {
     }
   };
 
-  if (loadError) return <div style={{ ...card, color: C.red, textAlign: 'left' }}>Bayi listesi yüklenemedi: {loadError}</div>;
+  if (loadError) return <div className="page-narrow"><Alert tone="danger">Bayi listesi yüklenemedi: {loadError}</Alert></div>;
 
   return (
-    <div style={{ textAlign: 'left', maxWidth: 640, margin: '0 auto' }}>
-      <h1 style={{ fontSize: 22, color: C.text, margin: '4px 0 16px' }}>Yeni saha kaydı</h1>
+    <div className="page-narrow">
+      <PageHeader title="Yeni saha kaydı" />
 
-      <section style={card}>
-        <h2 style={h2}>Bayi{req}</h2>
-        {index ? <DealerPicker entries={index.entries} value={dealer} onChange={pickDealer} myKey={myKey} /> : <p style={{ color: C.muted, margin: 0 }}>Bayi listesi yükleniyor…</p>}
-      </section>
+      <Card title={<>Bayi<Req /></>}>
+        {index ? <DealerPicker entries={index.entries} value={dealer} onChange={pickDealer} myKey={myKey} /> : <Skeleton height={48} radius={8} />}
+      </Card>
 
-      <section style={card}>
-        <h2 style={h2}>Görüşme</h2>
-        <div style={{ display: 'grid', gap: 14 }}>
+      <Card title="Görüşme">
+        <div className="stack">
           <div>
-            <label style={lbl}>Görüşülen kişi (ad soyad){req}</label>
-            <input value={f.contactName} onChange={(e) => set('contactName')(e.target.value)} style={input} autoComplete="off" />
+            <label className="label" htmlFor="f-contact">Görüşülen kişi (ad soyad)<Req /></label>
+            <input id="f-contact" className="input input-lg" value={f.contactName} onChange={(e) => set('contactName')(e.target.value)} autoComplete="off" />
           </div>
           <div>
-            <label style={lbl}>Firma ünvanı{req}</label>
-            <input value={f.companyTitle} onChange={(e) => set('companyTitle')(e.target.value)} style={input} />
+            <label className="label" htmlFor="f-title">Firma ünvanı<Req /></label>
+            <input id="f-title" className="input input-lg" value={f.companyTitle} onChange={(e) => set('companyTitle')(e.target.value)} />
           </div>
           <div>
-            <label style={lbl}>Distribütör</label>
-            <input value={f.distributor} onChange={(e) => set('distributor')(e.target.value)} style={input} />
+            <label className="label" htmlFor="f-dist">Distribütör</label>
+            <input id="f-dist" className="input input-lg" value={f.distributor} onChange={(e) => set('distributor')(e.target.value)} />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             <YesNo label="Tabela talebi" value={f.signRequest} onChange={set('signRequest')} />
             <YesNo label="Stant talebi" value={f.standRequest} onChange={set('standRequest')} />
           </div>
           <div>
-            <label style={lbl}>Telefon</label>
+            <span className="label">Telefon</span>
             <PhoneInput value={f.phone} onChange={set('phone')} />
           </div>
           <div>
-            <label style={lbl}>E-posta</label>
-            <input type="email" inputMode="email" value={f.email} onChange={(e) => set('email')(e.target.value)} style={input} autoCapitalize="off" />
+            <label className="label" htmlFor="f-email">E-posta</label>
+            <input id="f-email" type="email" inputMode="email" className="input input-lg" value={f.email} onChange={(e) => set('email')(e.target.value)} autoCapitalize="off" />
           </div>
         </div>
-      </section>
+      </Card>
 
-      <section style={card}>
-        <h2 style={h2}>Konum{req}</h2>
+      <Card title={<>Konum<Req /></>}>
         <LocationInput value={loc} onChange={setLoc} />
-      </section>
+      </Card>
 
-      <section style={card}>
-        <h2 style={h2}>Fotoğraflar</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
+      <Card title="Fotoğraflar" desc="Tabela veya stant kurulduktan sonraki fotoğrafları, kaydı kaydettikten sonra bayi sayfasından ekleyebilirsin.">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 14 }}>
           <PhotoInput label="Dış cephe" required value={photos.exterior} onChange={(p) => setPhotos((x) => ({ ...x, exterior: p }))} disabled={saving} />
           <PhotoInput label="Dükkan içi" required value={photos.interior} onChange={(p) => setPhotos((x) => ({ ...x, interior: p }))} disabled={saving} />
         </div>
-        <p style={{ fontSize: 12, color: C.muted, margin: '12px 0 0' }}>
-          Tabela veya stant kurulduktan sonraki fotoğrafları, kaydı kaydettikten sonra bayi sayfasından ekleyebilirsin.
-        </p>
-      </section>
+      </Card>
 
-      {errors.length > 0 && (
-        <div style={{ background: C.warnBg, color: C.warn, borderRadius: 8, padding: '12px 14px', fontSize: 14, marginBottom: 14 }}>
-          Kaydetmeden önce: {errors.join(', ')}.
-        </div>
-      )}
-      {saveError && <div style={{ background: C.redBg, color: C.red, borderRadius: 8, padding: '12px 14px', fontSize: 14, marginBottom: 14 }}>{saveError}</div>}
+      <div className="mt-16">
+        {errors.length > 0 && <Alert tone="warn">Kaydetmeden önce: {errors.join(', ')}.</Alert>}
+        {saveError && <Alert tone="danger">{saveError}</Alert>}
+      </div>
 
-      <div style={{ display: 'flex', gap: 12, marginBottom: 32 }}>
-        <button type="button" onClick={submit} disabled={saving}
-          style={{ flex: 1, padding: '14px 0', fontSize: 16, fontWeight: 700, border: 'none', borderRadius: 10, color: 'white', background: saving ? '#d9d5d0' : C.red, cursor: saving ? 'wait' : 'pointer' }}>
+      <div className="row mt-16" style={{ marginBottom: 32, flexWrap: 'nowrap' }}>
+        <button type="button" className="btn btn-primary btn-lg" style={{ flex: 1 }} onClick={submit} disabled={saving}>
           {saving ? 'Kaydediliyor…' : 'Kaydı kaydet'}
         </button>
-        <Link to={dealer ? `/dealers/${encodeURIComponent(dealer.i)}` : '/dealers'}
-          style={{ padding: '14px 18px', fontSize: 15, fontWeight: 600, borderRadius: 10, border: `1.5px solid ${C.border}`, color: C.text, textDecoration: 'none', background: 'white' }}>
-          Vazgeç
-        </Link>
+        <Link to={dealer ? `/dealers/${encodeURIComponent(dealer.i)}` : '/dealers'} className="btn btn-secondary btn-lg">Vazgeç</Link>
       </div>
     </div>
   );

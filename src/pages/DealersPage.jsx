@@ -4,32 +4,10 @@ import { Link } from 'react-router-dom';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { getDealerIndex, getCachedDealerIndex, fold } from '../utils/dealerIndex';
+import { Alert, Empty, PageHeader, SkeletonRows, StatusBadge, fmtNum } from '../components/ui';
 
-const C = {
-  red: '#B91724', redBg: '#fdf0f0', text: '#2b2b2b', muted: '#7a7570',
-  border: '#e5e3df', soft: '#f8f7f5', ok: '#1f7a4d', okBg: '#eaf6ef', warn: '#9a6400', warnBg: '#fff6e0',
-};
 const PAGE = 100;
-
-const input = {
-  border: `1.5px solid ${C.border}`, borderRadius: 8, padding: '9px 12px',
-  fontSize: 14, background: 'white', color: C.text, minWidth: 0,
-};
-
 const trSort = (a, b) => a.localeCompare(b, 'tr');
-const fmt = (n) => (n ?? 0).toLocaleString('tr-TR');
-
-function StatusBadge({ s }) {
-  const active = s === 'ACTIVE';
-  return (
-    <span style={{
-      fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 20, whiteSpace: 'nowrap',
-      background: active ? C.okBg : C.soft, color: active ? C.ok : C.muted,
-    }}>
-      {active ? 'Aktif' : s === 'SUSPEND' ? 'Askıda' : s || '-'}
-    </span>
-  );
-}
 
 export default function DealersPage() {
   const { userProfile } = useAuth();
@@ -78,109 +56,98 @@ export default function DealersPage() {
   const activeFilters = [city, rep, status, segment].filter(Boolean).length + (sort !== 'sales' ? 1 : 0);
   const clearAll = () => { setQ(''); setCity(''); setRep(''); setStatus(''); setSegment(''); };
 
-  if (error) {
-    return <div style={{ background: C.redBg, color: C.red, padding: 16, borderRadius: 8, textAlign: 'left' }}>{error}</div>;
-  }
-  if (!data) return <p style={{ color: C.muted, padding: 24, textAlign: 'left' }}>Bayiler yükleniyor…</p>;
-  if (!data.entries.length) {
+  if (error) return <div className="page"><Alert tone="danger">{error}</Alert></div>;
+
+  if (data && !data.entries.length) {
     return (
-      <div style={{ background: C.warnBg, color: C.warn, padding: 16, borderRadius: 8, textAlign: 'left' }}>
-        Bayi dizini henüz oluşturulmamış. Yönetici, Veri Yükle sayfasındaki "Bayi dizinini oluştur" butonuyla oluşturabilir.
+      <div className="page">
+        <PageHeader title="Bayiler" />
+        <Alert tone="warn">Bayi dizini henüz oluşturulmamış. Yönetici, Veri Yükle sayfasındaki "Bayi dizinini oluştur" butonuyla oluşturabilir.</Alert>
       </div>
     );
   }
 
   return (
-    <div style={{ textAlign: 'left', maxWidth: 1100, margin: '0 auto' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, margin: '4px 0 16px' }}>
-        <h1 style={{ fontSize: 24, color: C.text, margin: 0 }}>Bayiler</h1>
-        <span style={{ fontSize: 13, color: C.muted }}>
-          {fmt(filtered.length)} / {fmt(data.entries.length)} bayi
-          {data.updatedAt && ` · liste ${data.updatedAt.toLocaleDateString('tr-TR')} tarihli`}
-        </span>
-      </div>
+    <div className="page">
+      <PageHeader
+        title="Bayiler"
+        subtitle={data
+          ? `${fmtNum(filtered.length)} / ${fmtNum(data.entries.length)} bayi${data.updatedAt ? ` · liste ${data.updatedAt.toLocaleDateString('tr-TR')} tarihli` : ''}`
+          : 'Yükleniyor…'}
+      />
 
-      <div style={{ background: 'white', border: `1px solid ${C.border}`, borderRadius: 12, padding: 16, marginBottom: 16 }}>
+      <div className="card mb-16">
         <input
-          type="search" value={q} onChange={(e) => setQ(e.target.value)}
+          type="search" className="input input-lg" value={q} onChange={(e) => setQ(e.target.value)}
           placeholder="Bayi adı, Platform ID veya ilçe ara"
-          style={{ ...input, width: '100%', boxSizing: 'border-box', fontSize: 15, padding: '11px 14px' }}
         />
-        <div className={`filters-collapsible ${showFilters ? 'open' : ''}`} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginTop: 10 }}>
-          <select value={city} onChange={(e) => setCity(e.target.value)} style={input}>
+        <div className={`filters-grid filters-collapsible ${showFilters ? 'open' : ''}`}>
+          <select className="select" value={city} onChange={(e) => setCity(e.target.value)}>
             <option value="">Tüm iller</option>
             {options.cities.map((x) => <option key={x}>{x}</option>)}
           </select>
-          <select value={rep} onChange={(e) => setRep(e.target.value)} style={input} disabled={mine}>
+          <select className="select" value={rep} onChange={(e) => setRep(e.target.value)} disabled={mine}>
             <option value="">Tüm temsilciler</option>
             {options.reps.map((x) => <option key={x}>{x}</option>)}
           </select>
-          <select value={status} onChange={(e) => setStatus(e.target.value)} style={input}>
+          <select className="select" value={status} onChange={(e) => setStatus(e.target.value)}>
             <option value="">Aktif ve askıda</option>
             <option value="ACTIVE">Sadece aktif</option>
             <option value="SUSPEND">Sadece askıda</option>
           </select>
-          <select value={segment} onChange={(e) => setSegment(e.target.value)} style={input}>
+          <select className="select" value={segment} onChange={(e) => setSegment(e.target.value)}>
             <option value="">Tüm segmentler</option>
             {options.segments.map((x) => <option key={x}>{x}</option>)}
           </select>
-          <select value={sort} onChange={(e) => setSort(e.target.value)} style={input}>
-            <option value="sales">FY26 satışa göre</option>
+          <select className="select" value={sort} onChange={(e) => setSort(e.target.value)}>
+            <option value="sales">FY26 devreye alıma göre</option>
             <option value="name">Ada göre (A-Z)</option>
           </select>
         </div>
-        <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginTop: 12, flexWrap: 'wrap' }}>
+        <div className="row mt-12" style={{ gap: 16 }}>
           <button type="button" className="filters-toggle" onClick={() => setShowFilters((x) => !x)} aria-expanded={showFilters}>
             Filtreler {activeFilters > 0 && <span className="count">{activeFilters}</span>}
           </button>
           {myKey && (
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, color: C.text, cursor: 'pointer' }}>
+            <label className="check">
               <input type="checkbox" checked={mine} onChange={(e) => setMine(e.target.checked)} />
               Sadece benim bayilerim
             </label>
           )}
-          {anyFilter && (
-            <button onClick={clearAll} style={{ background: 'none', border: 'none', color: C.red, fontSize: 14, fontWeight: 600, cursor: 'pointer', padding: 0 }}>
-              Filtreleri temizle
-            </button>
-          )}
+          {anyFilter && <button type="button" className="btn-link" onClick={clearAll}>Filtreleri temizle</button>}
         </div>
       </div>
 
-      {filtered.length === 0 ? (
-        <div style={{ background: 'white', border: `1px solid ${C.border}`, borderRadius: 12, padding: 24, color: C.muted, fontSize: 14 }}>
-          Bu aramaya uyan bayi yok.
-          {mine && ' "Sadece benim bayilerim" açık; başka bir temsilcinin bayisini arıyorsan işareti kaldır.'}
+      {!data ? <SkeletonRows rows={8} /> : filtered.length === 0 ? (
+        <div className="card">
+          <Empty title="Bayi bulunamadı">
+            Bu aramaya uyan bayi yok.
+            {mine && ' "Sadece benim bayilerim" açık; başka bir temsilcinin bayisini arıyorsan işareti kaldır.'}
+          </Empty>
         </div>
       ) : (
-        <div style={{ background: 'white', border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' }}>
-          {filtered.slice(0, limit).map((e, idx) => (
-            <Link
-              key={e.i} to={`/dealers/${encodeURIComponent(e.i)}`}
-              style={{
-                display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', gap: '4px 16px', alignItems: 'center',
-                padding: '12px 16px', textDecoration: 'none', color: C.text,
-                borderTop: idx ? `1px solid ${C.border}` : 'none',
-              }}
-            >
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.n}</div>
-                <div style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>
-                  {e.i.startsWith('NOID-') ? 'Platform ID yok' : e.i} · {[e.d, e.c].filter(Boolean).join(', ')} · {e.r}
+        <div className="card card-flush">
+          {filtered.slice(0, limit).map((e) => (
+            <Link key={e.i} to={`/dealers/${encodeURIComponent(e.i)}`} className="list-row">
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', gap: '4px 16px', alignItems: 'center' }}>
+                <div style={{ minWidth: 0 }}>
+                  <div className="list-row-title">{e.n}</div>
+                  <div className="list-row-meta">
+                    {e.i.startsWith('NOID-') ? 'Platform ID yok' : e.i} · {[e.d, e.c].filter(Boolean).join(', ')} · {e.r}
+                  </div>
                 </div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 14, fontWeight: 700 }}>{fmt(e.q)} <span style={{ fontSize: 11, fontWeight: 400, color: C.muted }}>FY26</span></div>
-                <div style={{ marginTop: 4 }}><StatusBadge s={e.s} /></div>
+                <div style={{ textAlign: 'right' }}>
+                  <div className="num" style={{ fontSize: 15, fontWeight: 800 }}>
+                    {fmtNum(e.q)} <span className="text-xs muted" style={{ fontWeight: 600 }}>FY26</span>
+                  </div>
+                  <div style={{ marginTop: 4 }}><StatusBadge status={e.s} /></div>
+                </div>
               </div>
             </Link>
           ))}
           {filtered.length > limit && (
-            <button
-              onClick={() => setLimit((l) => l + PAGE)}
-              style={{ width: '100%', padding: 14, background: C.soft, border: 'none', borderTop: `1px solid ${C.border}`, fontSize: 14, fontWeight: 600, color: C.red, cursor: 'pointer' }}
-            >
-              {fmt(Math.min(PAGE, filtered.length - limit))} bayi daha göster ({fmt(filtered.length - limit)} kaldı)
+            <button className="list-more" onClick={() => setLimit((l) => l + PAGE)}>
+              {fmtNum(Math.min(PAGE, filtered.length - limit))} bayi daha göster ({fmtNum(filtered.length - limit)} kaldı)
             </button>
           )}
         </div>
@@ -188,4 +155,3 @@ export default function DealersPage() {
     </div>
   );
 }
-

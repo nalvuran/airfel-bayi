@@ -6,18 +6,14 @@ import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { addAfterPhotos } from '../utils/registrations';
 import PhotoInput from '../components/PhotoInput';
+import DevreyeTable from '../components/DevreyeTable';
+import { Photo, Lightbox, SLOT_LABEL } from '../components/Photos';
+import { Alert, Badge, Card, Info, PageHeader, Skeleton, StatusBadge } from '../components/ui';
 import { clearRegistrationsCache } from './RegistrationsPage';
 
-const C = {
-  red: '#B91724', redBg: '#fdf0f0', text: '#2b2b2b', muted: '#7a7570',
-  border: '#e5e3df', soft: '#f8f7f5', ok: '#1f7a4d', okBg: '#eaf6ef', warn: '#9a6400', warnBg: '#fff6e0',
-};
-// Satış rakamlarını tüm kullanıcılara göster. Kısıtlamak gerekirse burayı değiştir.
-const SHOW_SALES = true;
+// Devreye alım rakamlarını tüm kullanıcılara göster. Kısıtlamak gerekirse burayı değiştir.
+const SHOW_DEVREYE = true;
 
-const card = { background: 'white', border: `1px solid ${C.border}`, borderRadius: 12, padding: 20, marginBottom: 16 };
-const h2 = { fontSize: 16, margin: '0 0 14px', color: C.text };
-const fmt = (n) => (n ?? 0).toLocaleString('tr-TR');
 const toDate = (v) => (v?.toDate ? v.toDate() : v instanceof Date ? v : null);
 const fmtDate = (v, withTime) => {
   const d = toDate(v);
@@ -26,80 +22,7 @@ const fmtDate = (v, withTime) => {
     ? d.toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
     : d.toLocaleDateString('tr-TR');
 };
-const SLOT_LABEL = { exterior: 'Dış cephe', interior: 'Dükkan içi', exteriorAfter: 'Dış cephe (sonrası)', interiorAfter: 'Dükkan içi (sonrası)' };
-
-function Field({ label, children }) {
-  return (
-    <div>
-      <div style={{ fontSize: 12, color: C.muted }}>{label}</div>
-      <div style={{ fontSize: 14, color: C.text, marginTop: 2, wordBreak: 'break-word' }}>{children || '-'}</div>
-    </div>
-  );
-}
-
-/* ---------- Fotoğraf: photos/{id} dokümanından yüklenir ---------- */
-
-function Photo({ info, driveUrl, label, onOpen }) {
-  const [src, setSrc] = useState(null);
-  const [state, setState] = useState(info?.photoId ? 'loading' : 'none');
-
-  useEffect(() => {
-    if (!info?.photoId) return undefined;
-    let url = null;
-    let cancelled = false;
-    getDoc(doc(db, 'photos', info.photoId))
-      .then((snap) => {
-        if (cancelled) return;
-        if (!snap.exists()) { setState('missing'); return; }
-        const p = snap.data();
-        const blob = new Blob([p.data.toUint8Array()], { type: p.contentType || 'image/jpeg' });
-        url = URL.createObjectURL(blob);
-        setSrc(url); setState('ok');
-      })
-      .catch(() => { if (!cancelled) setState('error'); });
-    return () => { cancelled = true; if (url) URL.revokeObjectURL(url); };
-  }, [info?.photoId]);
-
-  const box = {
-    width: '100%', aspectRatio: '4 / 3', borderRadius: 8, background: C.soft, border: `1px solid ${C.border}`,
-    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: C.muted, overflow: 'hidden',
-  };
-
-  return (
-    <figure style={{ margin: 0 }}>
-      {state === 'ok' ? (
-        <button onClick={() => onOpen(src, label)} style={{ ...box, padding: 0, cursor: 'zoom-in' }} aria-label={`${label} fotoğrafını büyüt`}>
-          <img src={src} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        </button>
-      ) : (
-        <div style={box}>
-          {state === 'loading' && 'Yükleniyor…'}
-          {state === 'none' && (driveUrl ? <a href={driveUrl} target="_blank" rel="noreferrer" style={{ color: C.red }}>Drive'da aç</a> : 'Fotoğraf yok')}
-          {(state === 'missing' || state === 'error') && 'Fotoğraf açılamadı'}
-        </div>
-      )}
-      <figcaption style={{ fontSize: 12, color: C.muted, marginTop: 6 }}>{label}</figcaption>
-    </figure>
-  );
-}
-
-function Lightbox({ photo, onClose }) {
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-  if (!photo) return null;
-  return (
-    <div
-      onClick={onClose} role="dialog" aria-label={photo.label}
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.85)', zIndex: 1000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 16, cursor: 'zoom-out' }}
-    >
-      <img src={photo.src} alt={photo.label} style={{ maxWidth: '100%', maxHeight: '85vh', borderRadius: 6 }} />
-      <div style={{ color: 'white', fontSize: 14, marginTop: 12 }}>{photo.label} · kapatmak için tıkla</div>
-    </div>
-  );
-}
+const yesNo = (v) => (v === true ? <Badge tone="success">Evet</Badge> : v === false ? <Badge>Hayır</Badge> : '-');
 
 /* ---------- Sonrası fotoğrafları ---------- */
 
@@ -128,27 +51,23 @@ function AfterPhotos({ r, onSaved }) {
 
   if (!open) {
     return (
-      <button onClick={() => setOpen(true)} style={{ marginTop: 14, background: 'white', border: `1.5px solid ${C.border}`, borderRadius: 8, padding: '9px 14px', fontSize: 14, fontWeight: 600, color: C.text, cursor: 'pointer' }}>
+      <button className="btn btn-secondary mt-16" style={{ whiteSpace: 'normal', textAlign: 'center', maxWidth: '100%' }} onClick={() => setOpen(true)}>
         + Sonrası fotoğraf ekle (tabela / stant kurulumu)
       </button>
     );
   }
   return (
-    <div style={{ marginTop: 14, background: C.soft, borderRadius: 10, padding: 14 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+    <div className="mt-16" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
         {missing.map((s) => (
           <PhotoInput key={s} label={SLOT_LABEL[s]} value={photos[s]} disabled={saving}
             onChange={(p) => setPhotos((x) => ({ ...x, [s]: p }))} />
         ))}
       </div>
-      {error && <div style={{ color: C.red, fontSize: 13, marginTop: 10 }}>{error}</div>}
-      <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
-        <button onClick={save} disabled={saving} style={{ background: saving ? '#d9d5d0' : C.red, color: 'white', border: 'none', borderRadius: 8, padding: '10px 16px', fontSize: 14, fontWeight: 600, cursor: saving ? 'wait' : 'pointer' }}>
-          {saving ? 'Kaydediliyor…' : 'Fotoğrafları kaydet'}
-        </button>
-        <button onClick={() => { setOpen(false); setError(''); }} disabled={saving} style={{ background: 'white', border: `1.5px solid ${C.border}`, borderRadius: 8, padding: '10px 16px', fontSize: 14, cursor: 'pointer' }}>
-          Vazgeç
-        </button>
+      {error && <Alert tone="danger" style={{ marginTop: 10 }}>{error}</Alert>}
+      <div className="row mt-12">
+        <button className="btn btn-primary" onClick={save} disabled={saving}>{saving ? 'Kaydediliyor…' : 'Fotoğrafları kaydet'}</button>
+        <button className="btn btn-secondary" onClick={() => { setOpen(false); setError(''); }} disabled={saving}>Vazgeç</button>
       </div>
     </div>
   );
@@ -159,44 +78,37 @@ function AfterPhotos({ r, onSaved }) {
 function Registration({ r, onOpen, canEdit, onChanged }) {
   const loc = r.location ? `https://www.google.com/maps?q=${r.location.lat},${r.location.lng}` : r.mapsUrl;
   const slots = Object.keys(SLOT_LABEL).filter((s) => r.photos?.[s] || r.photoFiles?.[s]);
-  const yes = (v) => (v === true ? 'Evet' : v === false ? 'Hayır' : '-');
 
   return (
-    <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 16, marginTop: 16 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+    <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16, marginTop: 16 }}>
+      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
-          <div style={{ fontWeight: 600, fontSize: 14 }}>{fmtDate(r.createdAt, true)}</div>
-          <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>
+          <div style={{ fontWeight: 800, fontSize: 15 }}>{fmtDate(r.createdAt, true)}</div>
+          <div className="text-sm muted" style={{ marginTop: 2 }}>
             {r.salesRep}{r.source === 'legacySheets' && ' · eski sistemden'}
             {r.afterPhotosAt && ` · sonrası fotoğrafı ${fmtDate(r.afterPhotosAt)}`}
           </div>
         </div>
-        {r.needsReview && (
-          <span style={{ alignSelf: 'flex-start', fontSize: 12, background: C.warnBg, color: C.warn, padding: '4px 10px', borderRadius: 20 }}>
-            Kontrol gerekli
-          </span>
-        )}
+        {r.needsReview && <Badge tone="warn">Kontrol gerekli</Badge>}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginTop: 12 }}>
-        <Field label="Görüşülen kişi">{r.contactName}</Field>
-        <Field label="Firma ünvanı">{r.companyTitle}</Field>
-        <Field label="Distribütör">{r.distributor}</Field>
-        <Field label="Tabela talebi">{yes(r.signRequest)}</Field>
-        <Field label="Stant talebi">{yes(r.standRequest)}</Field>
-        {r.phone && <Field label="Telefon"><a href={`tel:${r.phone}`} style={{ color: C.red }}>{r.phone}</a></Field>}
-        {r.email && <Field label="E-posta"><a href={`mailto:${r.email}`} style={{ color: C.red }}>{r.email}</a></Field>}
-        <Field label="Konum">{loc ? <a href={loc} target="_blank" rel="noreferrer" style={{ color: C.red }}>Haritada aç</a> : null}</Field>
+      <div className="info-grid mt-12">
+        <Info label="Görüşülen kişi">{r.contactName}</Info>
+        <Info label="Firma ünvanı">{r.companyTitle}</Info>
+        <Info label="Distribütör">{r.distributor}</Info>
+        <Info label="Tabela talebi">{yesNo(r.signRequest)}</Info>
+        <Info label="Stant talebi">{yesNo(r.standRequest)}</Info>
+        {r.phone && <Info label="Telefon"><a href={`tel:${r.phone}`} style={{ color: 'var(--red)' }}>{r.phone}</a></Info>}
+        {r.email && <Info label="E-posta"><a href={`mailto:${r.email}`} style={{ color: 'var(--red)' }}>{r.email}</a></Info>}
+        <Info label="Konum">{loc ? <a href={loc} target="_blank" rel="noreferrer" style={{ color: 'var(--red)' }}>Haritada aç</a> : null}</Info>
       </div>
-      {r.needsReview && r.reviewReasons?.length > 0 && (
-        <div style={{ fontSize: 12, color: C.warn, marginTop: 10 }}>{r.reviewReasons.join('; ')}</div>
-      )}
+      {r.needsReview && r.reviewReasons?.length > 0 && <div className="text-xs mt-8" style={{ color: 'var(--amber)' }}>{r.reviewReasons.join('; ')}</div>}
 
       {slots.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12, marginTop: 14 }}>
+        <div className="mt-16" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12 }}>
           {slots.map((s) => (
             <Photo key={s} info={r.photoFiles?.[s]} driveUrl={r.photos?.[s]} label={SLOT_LABEL[s]}
-              onOpen={(src, label) => onOpen({ src, label: `${label} · ${fmtDate(r.createdAt)}` })} />
+              onOpen={(p) => onOpen({ ...p, label: `${p.label} · ${fmtDate(r.createdAt)}` })} />
           ))}
         </div>
       )}
@@ -206,6 +118,18 @@ function Registration({ r, onOpen, canEdit, onChanged }) {
 }
 
 /* ---------- Sayfa ---------- */
+
+function DetailSkeleton() {
+  return (
+    <div className="page-narrow" style={{ maxWidth: 1000 }} aria-busy="true">
+      <Skeleton width={80} height={14} />
+      <Skeleton width="70%" height={26} style={{ marginTop: 16 }} />
+      <Skeleton width="45%" height={14} style={{ marginTop: 10, marginBottom: 20 }} />
+      <div className="card"><Skeleton width="30%" height={16} /><Skeleton height={80} style={{ marginTop: 14 }} /></div>
+      <div className="card"><Skeleton width="30%" height={16} /><Skeleton height={100} style={{ marginTop: 14 }} /></div>
+    </div>
+  );
+}
 
 export default function DealerDetailPage() {
   const { id } = useParams();
@@ -236,99 +160,54 @@ export default function DealerDetailPage() {
   const canEdit = (r) => userRole === 'admin' || r.createdByUid === user?.uid ||
     (!!userProfile?.salesRepKey && r.salesRepKey === userProfile.salesRepKey);
 
-  const back = <Link to="/dealers" style={{ color: C.red, fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>← Bayiler</Link>;
-
-  if (error) return <div style={{ textAlign: 'left' }}>{back}<div style={{ ...card, marginTop: 16, color: C.red }}>Bayi yüklenemedi: {error}</div></div>;
-  if (dealer === undefined) return <div style={{ textAlign: 'left' }}>{back}<p style={{ color: C.muted }}>Yükleniyor…</p></div>;
-  if (dealer === null) return <div style={{ textAlign: 'left' }}>{back}<div style={{ ...card, marginTop: 16 }}>Bu kodla bir bayi bulunamadı: {id}</div></div>;
-
-  const s = dealer.sales || {};
-  const years = [['FY24', s.fy24], ['FY25', s.fy25], ['FY26', s.fy26]];
+  const back = { to: '/dealers', label: 'Bayiler' };
+  if (error) return <div className="page"><Link to="/dealers" className="back-link">← Bayiler</Link><Alert tone="danger">Bayi yüklenemedi: {error}</Alert></div>;
+  if (dealer === undefined) return <DetailSkeleton />;
+  if (dealer === null) return <div className="page"><Link to="/dealers" className="back-link">← Bayiler</Link><Alert tone="warn">Bu kodla bir bayi bulunamadı: {id}</Alert></div>;
 
   return (
-    <div style={{ textAlign: 'left', maxWidth: 1000, margin: '0 auto' }}>
-      {back}
-      <div style={{ margin: '12px 0 16px' }}>
-        <h1 style={{ fontSize: 22, color: C.text, margin: 0, lineHeight: 1.3 }}>{dealer.name}</h1>
-        <div style={{ fontSize: 14, color: C.muted, marginTop: 6 }}>
-          {dealer.platformId || 'Platform ID yok'} · {[dealer.district, dealer.city].filter(Boolean).join(', ')}
-          {' · '}
-          <span style={{ color: dealer.status === 'ACTIVE' ? C.ok : C.muted, fontWeight: 600 }}>
-            {dealer.status === 'ACTIVE' ? 'Aktif' : dealer.status === 'SUSPEND' ? 'Askıda' : dealer.status}
+    <div className="page-narrow" style={{ maxWidth: 1000 }}>
+      <PageHeader
+        back={back}
+        title={dealer.name}
+        subtitle={
+          <span className="row" style={{ gap: 8 }}>
+            <span>{dealer.platformId || 'Platform ID yok'} · {[dealer.district, dealer.city].filter(Boolean).join(', ')}</span>
+            <StatusBadge status={dealer.status} />
           </span>
-        </div>
-      </div>
+        }
+      />
 
-      <section style={card}>
-        <h2 style={h2}>Bayi bilgileri</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 14 }}>
-          <Field label="Satış temsilcisi">{dealer.salesRep}</Field>
-          <Field label="Bölge müdürü">{dealer.regionManager}</Field>
-          <Field label="Bölge">{dealer.region}</Field>
-          <Field label="Distribütör">{dealer.distributor}</Field>
-          <Field label="Segment">{dealer.sbuSegment}</Field>
-          {dealer.currentClass && <Field label="Güncel sınıf">{dealer.currentClass}</Field>}
-          <Field label="Açılış tarihi">{fmtDate(dealer.createdDate)}</Field>
-          {dealer.sapNo && <Field label="SAP No">{dealer.sapNo}</Field>}
-          {dealer.servicesStatus && <Field label="Servis">{dealer.servicesStatus}</Field>}
+      <Card title="Bayi bilgileri">
+        <div className="info-grid">
+          <Info label="Satış temsilcisi">{dealer.salesRep}</Info>
+          <Info label="Bölge müdürü">{dealer.regionManager}</Info>
+          <Info label="Bölge">{dealer.region}</Info>
+          <Info label="Distribütör">{dealer.distributor}</Info>
+          <Info label="Segment">{dealer.sbuSegment}</Info>
+          {dealer.currentClass && <Info label="Güncel sınıf">{dealer.currentClass}</Info>}
+          <Info label="Açılış tarihi">{fmtDate(dealer.createdDate)}</Info>
+          {dealer.sapNo && <Info label="SAP No">{dealer.sapNo}</Info>}
+          {dealer.servicesStatus && <Info label="Servis">{dealer.servicesStatus}</Info>}
         </div>
-      </section>
+      </Card>
 
-      {SHOW_SALES && (
-        <section style={card}>
-          <h2 style={h2}>Satışlar (adet)</h2>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead>
-                <tr style={{ color: C.muted, fontSize: 12, textAlign: 'right' }}>
-                  <th style={{ textAlign: 'left', padding: '6px 4px', fontWeight: 600 }}>Yıl</th>
-                  <th style={{ padding: '6px 4px', fontWeight: 600 }}>Klima</th>
-                  <th style={{ padding: '6px 4px', fontWeight: 600 }}>Kombi</th>
-                  <th style={{ padding: '6px 4px', fontWeight: 600 }}>Toplam</th>
-                  <th style={{ padding: '6px 4px', fontWeight: 600 }}>Segment</th>
-                </tr>
-              </thead>
-              <tbody>
-                {years.map(([y, v]) => (
-                  <tr key={y} style={{ borderTop: `1px solid ${C.border}`, textAlign: 'right' }}>
-                    <td style={{ textAlign: 'left', padding: '8px 4px', fontWeight: 600 }}>{y}</td>
-                    <td style={{ padding: '8px 4px' }}>{fmt(v?.ac)}</td>
-                    <td style={{ padding: '8px 4px' }}>{fmt(v?.cb)}</td>
-                    <td style={{ padding: '8px 4px', fontWeight: 700 }}>{fmt(v?.total)}</td>
-                    <td style={{ padding: '8px 4px', color: C.muted }}>{v?.segment || '-'}</td>
-                  </tr>
-                ))}
-                <tr style={{ borderTop: `2px solid ${C.border}`, textAlign: 'right' }}>
-                  <td style={{ textAlign: 'left', padding: '8px 4px', fontWeight: 600 }}>3 yıl</td>
-                  <td colSpan={2} />
-                  <td style={{ padding: '8px 4px', fontWeight: 700 }}>{fmt(s.total3y)}</td>
-                  <td />
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
+      {SHOW_DEVREYE && (
+        <Card title="Devreye alım (adet)">
+          <DevreyeTable sales={dealer.sales} />
+        </Card>
       )}
 
-      <section style={card}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <h2 style={{ ...h2, marginBottom: 0 }}>Saha kayıtları {regs && `(${regs.length})`}</h2>
-          <Link to={`/registrations/new?dealer=${encodeURIComponent(id)}`}
-            style={{ background: C.red, color: 'white', borderRadius: 8, padding: '9px 14px', fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>
-            + Yeni kayıt ekle
-          </Link>
-        </div>
-        {justSaved && (
-          <div style={{ background: C.okBg, color: C.ok, borderRadius: 8, padding: '10px 14px', fontSize: 14, marginTop: 12 }}>
-            ✓ Kayıt kaydedildi.
-          </div>
-        )}
-        {regs === null && <p style={{ color: C.muted, fontSize: 14 }}>Yükleniyor…</p>}
-        {regs?.length === 0 && <p style={{ color: C.muted, fontSize: 14, marginBottom: 0 }}>Bu bayi için henüz saha kaydı yok.</p>}
+      <Card
+        title={`Saha kayıtları${regs ? ` (${regs.length})` : ''}`}
+        actions={<Link to={`/registrations/new?dealer=${encodeURIComponent(id)}`} className="btn btn-primary btn-sm">+ Yeni kayıt ekle</Link>}
+      >
+        {justSaved && <Alert tone="success">✓ Kayıt kaydedildi.</Alert>}
+        {regs?.length === 0 && <p className="text-sm muted">Bu bayi için henüz saha kaydı yok.</p>}
         {regs?.map((r) => (
           <Registration key={r.id} r={r} onOpen={setLightbox} canEdit={canEdit(r)} onChanged={() => setReload((x) => x + 1)} />
         ))}
-      </section>
+      </Card>
 
       <Lightbox photo={lightbox} onClose={() => setLightbox(null)} />
     </div>

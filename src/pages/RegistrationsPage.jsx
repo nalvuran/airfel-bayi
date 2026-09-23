@@ -6,28 +6,15 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { fold, getDealerIndex } from '../utils/dealerIndex';
+import { Alert, Badge, Empty, PageHeader, SkeletonRows } from '../components/ui';
 
-const C = {
-  red: '#B91724', redBg: '#fdf0f0', text: '#2b2b2b', muted: '#7a7570',
-  border: '#e5e3df', soft: '#f8f7f5', ok: '#1f7a4d', okBg: '#eaf6ef', warn: '#9a6400', warnBg: '#fff6e0',
-};
 const PAGE = 50;
-const input = {
-  border: `1.5px solid ${C.border}`, borderRadius: 8, padding: '9px 12px',
-  fontSize: 14, background: 'white', color: C.text, minWidth: 0,
-};
 const toDate = (v) => (v?.toDate ? v.toDate() : v instanceof Date ? v : null);
 const fmtDate = (d) => (d ? d.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-');
 
 // Oturum boyunca bellekte tut; yeni kayıt girilince sayfa açılışında yenilenir
 let cache = { key: null, rows: null, at: 0 };
 const CACHE_MS = 60 * 1000;
-
-function Badge({ children, tone }) {
-  const map = { ok: [C.okBg, C.ok], warn: [C.warnBg, C.warn], red: [C.redBg, C.red], soft: [C.soft, C.muted] };
-  const [bg, fg] = map[tone] || map.soft;
-  return <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 20, background: bg, color: fg, whiteSpace: 'nowrap' }}>{children}</span>;
-}
 
 // Talep edilmiş ama kurulum sonrası fotoğrafı olmayan kayıtlar
 const waitingInstall = (r) =>
@@ -103,109 +90,94 @@ export default function RegistrationsPage() {
   }), [rows]);
 
   const title = scope === 'all' ? 'Kayıtlar' : 'Kayıtlarım';
+  const activeFilters = [period, special, rep].filter(Boolean).length;
 
   return (
-    <div style={{ textAlign: 'left', maxWidth: 1000, margin: '0 auto' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', margin: '4px 0 16px' }}>
-        <h1 style={{ fontSize: 24, color: C.text, margin: 0 }}>{title}</h1>
-        <Link to="/registrations/new" style={{ background: C.red, color: 'white', borderRadius: 8, padding: '9px 14px', fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>
-          + Yeni kayıt
-        </Link>
-      </div>
+    <div className="page">
+      <PageHeader
+        title={title}
+        subtitle={rows ? `${filtered.length} / ${rows.length} kayıt` : 'Yükleniyor…'}
+        actions={<Link to="/registrations/new" className="btn btn-primary btn-sm">+ Yeni kayıt</Link>}
+      />
 
-      <div style={{ background: 'white', border: `1px solid ${C.border}`, borderRadius: 12, padding: 16, marginBottom: 16 }}>
+      <div className="card mb-16">
         {isAdmin && (
-          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+          <div className="row mb-12" style={{ gap: 8 }}>
             {[['all', 'Tüm kayıtlar'], ['mine', 'Sadece benimkiler']].map(([k, l]) => (
-              <button key={k} onClick={() => setScope(k)} style={{
-                padding: '7px 12px', borderRadius: 20, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                border: `1.5px solid ${scope === k ? C.red : C.border}`, background: scope === k ? C.redBg : 'white', color: scope === k ? C.red : C.text,
-              }}>{l}</button>
+              <button key={k} className={`pill ${scope === k ? 'active' : ''}`} onClick={() => setScope(k)}>{l}</button>
             ))}
           </div>
         )}
-        <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Bayi, firma, görüşülen kişi veya Platform ID ara"
-          style={{ ...input, width: '100%', boxSizing: 'border-box', fontSize: 15, padding: '11px 14px' }} />
-        <button type="button" className="filters-toggle" style={{ marginTop: 10 }} onClick={() => setShowFilters((x) => !x)} aria-expanded={showFilters}>
-          Filtreler {[period, special, rep].filter(Boolean).length > 0 && <span className="count">{[period, special, rep].filter(Boolean).length}</span>}
+        <input type="search" className="input input-lg" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Bayi, firma, görüşülen kişi veya Platform ID ara" />
+        <button type="button" className="filters-toggle mt-12" onClick={() => setShowFilters((x) => !x)} aria-expanded={showFilters}>
+          Filtreler {activeFilters > 0 && <span className="count">{activeFilters}</span>}
         </button>
-        <div className={`filters-collapsible ${showFilters ? 'open' : ''}`} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10, marginTop: 10 }}>
-          <select value={period} onChange={(e) => setPeriod(e.target.value)} style={input}>
+        <div className={`filters-grid filters-collapsible ${showFilters ? 'open' : ''}`}>
+          <select className="select" value={period} onChange={(e) => setPeriod(e.target.value)}>
             <option value="">Tüm zamanlar</option>
             <option value="7">Son 7 gün</option>
             <option value="30">Son 30 gün</option>
             <option value="90">Son 3 ay</option>
           </select>
-          <select value={special} onChange={(e) => setSpecial(e.target.value)} style={input}>
+          <select className="select" value={special} onChange={(e) => setSpecial(e.target.value)}>
             <option value="">Tüm kayıtlar</option>
             <option value="install">Kurulum bekleyenler ({counts.install})</option>
             {counts.review > 0 && <option value="review">Kontrol gerekenler ({counts.review})</option>}
           </select>
           {scope === 'all' && (
-            <select value={rep} onChange={(e) => setRep(e.target.value)} style={input}>
+            <select className="select" value={rep} onChange={(e) => setRep(e.target.value)}>
               <option value="">Tüm temsilciler</option>
               {reps.map((r) => <option key={r}>{r}</option>)}
             </select>
           )}
         </div>
         {special === 'install' && (
-          <p style={{ fontSize: 12, color: C.muted, margin: '10px 0 0' }}>
-            Tabela veya stant talep edilmiş, ama henüz kurulum sonrası fotoğrafı eklenmemiş kayıtlar.
-          </p>
+          <p className="text-xs muted mt-8">Tabela veya stant talep edilmiş, ama henüz kurulum sonrası fotoğrafı eklenmemiş kayıtlar.</p>
         )}
       </div>
 
-      {error && <div style={{ background: C.redBg, color: C.red, padding: 16, borderRadius: 8 }}>Kayıtlar yüklenemedi: {error}</div>}
-      {!rows && !error && <p style={{ color: C.muted }}>Kayıtlar yükleniyor…</p>}
+      {error && <Alert tone="danger">Kayıtlar yüklenemedi: {error}</Alert>}
+      {!rows && !error && <SkeletonRows rows={6} />}
 
-      {rows && (
-        <>
-          <div style={{ fontSize: 13, color: C.muted, marginBottom: 8 }}>{filtered.length} / {rows.length} kayıt</div>
-          {filtered.length === 0 ? (
-            <div style={{ background: 'white', border: `1px solid ${C.border}`, borderRadius: 12, padding: 24, color: C.muted, fontSize: 14 }}>
-              {rows.length === 0 ? 'Henüz kayıt yok. "+ Yeni kayıt" ile ilk kaydını gir.' : 'Bu filtrelere uyan kayıt yok.'}
-            </div>
-          ) : (
-            <div style={{ background: 'white', border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' }}>
-              {filtered.slice(0, limit).map((r, idx) => {
-                const dn = names[r.dealerId];
-                const photoCount = Object.values(r.photoFiles || {}).filter(Boolean).length;
-                return (
-                  <Link key={r.id} to={r.dealerId ? `/dealers/${encodeURIComponent(r.dealerId)}` : '#'}
-                    style={{ display: 'block', padding: '12px 16px', textDecoration: 'none', color: C.text, borderTop: idx ? `1px solid ${C.border}` : 'none' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {dn?.n || r.dealerName || r.companyTitle || 'Bayi eşleşmemiş'}
-                        </div>
-                        <div style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>
-                          {[r.contactName, dn && [dn.d, dn.c].filter(Boolean).join(', '), scope === 'all' && r.salesRep].filter(Boolean).join(' · ')}
-                        </div>
-                      </div>
-                      <div style={{ fontSize: 13, color: C.muted, whiteSpace: 'nowrap' }}>{fmtDate(r.date)}</div>
+      {rows && (filtered.length === 0 ? (
+        <div className="card">
+          <Empty title={rows.length === 0 ? 'Henüz kayıt yok' : 'Kayıt bulunamadı'}>
+            {rows.length === 0 ? '"+ Yeni kayıt" ile ilk kaydını gir.' : 'Bu filtrelere uyan kayıt yok.'}
+          </Empty>
+        </div>
+      ) : (
+        <div className="card card-flush">
+          {filtered.slice(0, limit).map((r) => {
+            const dn = names[r.dealerId];
+            const photoCount = Object.values(r.photoFiles || {}).filter(Boolean).length;
+            return (
+              <Link key={r.id} to={r.dealerId ? `/dealers/${encodeURIComponent(r.dealerId)}` : '#'} className="list-row">
+                <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'nowrap', alignItems: 'flex-start' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div className="list-row-title">{dn?.n || r.dealerName || r.companyTitle || 'Bayi eşleşmemiş'}</div>
+                    <div className="list-row-meta">
+                      {[r.contactName, dn && [dn.d, dn.c].filter(Boolean).join(', '), scope === 'all' && r.salesRep].filter(Boolean).join(' · ')}
                     </div>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
-                      {r.signRequest && <Badge tone="soft">Tabela talebi</Badge>}
-                      {r.standRequest && <Badge tone="soft">Stant talebi</Badge>}
-                      {waitingInstall(r) && <Badge tone="warn">Kurulum bekliyor</Badge>}
-                      {r.afterPhotosAt || r.photoFiles?.exteriorAfter || r.photoFiles?.interiorAfter ? <Badge tone="ok">Kurulum fotoğrafı var</Badge> : null}
-                      {r.needsReview && <Badge tone="red">Kontrol gerekli</Badge>}
-                      <Badge tone="soft">{photoCount} fotoğraf</Badge>
-                      {r.source === 'legacySheets' && <Badge tone="soft">Eski sistem</Badge>}
-                    </div>
-                  </Link>
-                );
-              })}
-              {filtered.length > limit && (
-                <button onClick={() => setLimit((l) => l + PAGE)}
-                  style={{ width: '100%', padding: 14, background: C.soft, border: 'none', borderTop: `1px solid ${C.border}`, fontSize: 14, fontWeight: 600, color: C.red, cursor: 'pointer' }}>
-                  Daha fazla göster ({filtered.length - limit} kaldı)
-                </button>
-              )}
-            </div>
+                  </div>
+                  <div className="text-sm muted num" style={{ whiteSpace: 'nowrap', fontWeight: 600 }}>{fmtDate(r.date)}</div>
+                </div>
+                <div className="row mt-8" style={{ gap: 6 }}>
+                  {r.signRequest && <Badge>Tabela talebi</Badge>}
+                  {r.standRequest && <Badge>Stant talebi</Badge>}
+                  {waitingInstall(r) && <Badge tone="warn">Kurulum bekliyor</Badge>}
+                  {r.afterPhotosAt || r.photoFiles?.exteriorAfter || r.photoFiles?.interiorAfter ? <Badge tone="success">Kurulum fotoğrafı var</Badge> : null}
+                  {r.needsReview && <Badge tone="danger">Kontrol gerekli</Badge>}
+                  <Badge>{photoCount} fotoğraf</Badge>
+                  {r.source === 'legacySheets' && <Badge>Eski sistem</Badge>}
+                </div>
+              </Link>
+            );
+          })}
+          {filtered.length > limit && (
+            <button className="list-more" onClick={() => setLimit((l) => l + PAGE)}>Daha fazla göster ({filtered.length - limit} kaldı)</button>
           )}
-        </>
-      )}
+        </div>
+      ))}
     </div>
   );
 }

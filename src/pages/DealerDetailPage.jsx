@@ -9,7 +9,7 @@ import PhotoInput from '../components/PhotoInput';
 import { clearRegistrationsCache } from './RegistrationsPage';
 
 const C = {
-  red: '#BE1E2D', redBg: '#fdf0f0', text: '#2b2b2b', muted: '#7a7570',
+  red: '#B91724', redBg: '#fdf0f0', text: '#2b2b2b', muted: '#7a7570',
   border: '#e5e3df', soft: '#f8f7f5', ok: '#1f7a4d', okBg: '#eaf6ef', warn: '#9a6400', warnBg: '#fff6e0',
 };
 // Satış rakamlarını tüm kullanıcılara göster. Kısıtlamak gerekirse burayı değiştir.
@@ -178,7 +178,7 @@ function Registration({ r, onOpen, canEdit, onChanged }) {
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginTop: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginTop: 12 }}>
         <Field label="Görüşülen kişi">{r.contactName}</Field>
         <Field label="Firma ünvanı">{r.companyTitle}</Field>
         <Field label="Distribütör">{r.distributor}</Field>
@@ -193,7 +193,7 @@ function Registration({ r, onOpen, canEdit, onChanged }) {
       )}
 
       {slots.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12, marginTop: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12, marginTop: 14 }}>
           {slots.map((s) => (
             <Photo key={s} info={r.photoFiles?.[s]} driveUrl={r.photos?.[s]} label={SLOT_LABEL[s]}
               onOpen={(src, label) => onOpen({ src, label: `${label} · ${fmtDate(r.createdAt)}` })} />
@@ -261,7 +261,7 @@ export default function DealerDetailPage() {
 
       <section style={card}>
         <h2 style={h2}>Bayi bilgileri</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 14 }}>
           <Field label="Satış temsilcisi">{dealer.salesRep}</Field>
           <Field label="Bölge müdürü">{dealer.regionManager}</Field>
           <Field label="Bölge">{dealer.region}</Field>
@@ -279,30 +279,30 @@ export default function DealerDetailPage() {
         <section style={card}>
           <h2 style={h2}>Satışlar (adet)</h2>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 420 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ color: C.muted, fontSize: 12, textAlign: 'right' }}>
-                  <th style={{ textAlign: 'left', padding: '6px 8px', fontWeight: 600 }}>Yıl</th>
-                  <th style={{ padding: '6px 8px', fontWeight: 600 }}>Klima (AC)</th>
-                  <th style={{ padding: '6px 8px', fontWeight: 600 }}>Kombi (CB)</th>
-                  <th style={{ padding: '6px 8px', fontWeight: 600 }}>Toplam</th>
-                  <th style={{ padding: '6px 8px', fontWeight: 600 }}>Segment</th>
+                  <th style={{ textAlign: 'left', padding: '6px 4px', fontWeight: 600 }}>Yıl</th>
+                  <th style={{ padding: '6px 4px', fontWeight: 600 }}>Klima</th>
+                  <th style={{ padding: '6px 4px', fontWeight: 600 }}>Kombi</th>
+                  <th style={{ padding: '6px 4px', fontWeight: 600 }}>Toplam</th>
+                  <th style={{ padding: '6px 4px', fontWeight: 600 }}>Segment</th>
                 </tr>
               </thead>
               <tbody>
                 {years.map(([y, v]) => (
                   <tr key={y} style={{ borderTop: `1px solid ${C.border}`, textAlign: 'right' }}>
-                    <td style={{ textAlign: 'left', padding: '8px', fontWeight: 600 }}>{y}</td>
-                    <td style={{ padding: '8px' }}>{fmt(v?.ac)}</td>
-                    <td style={{ padding: '8px' }}>{fmt(v?.cb)}</td>
-                    <td style={{ padding: '8px', fontWeight: 700 }}>{fmt(v?.total)}</td>
-                    <td style={{ padding: '8px', color: C.muted }}>{v?.segment || '-'}</td>
+                    <td style={{ textAlign: 'left', padding: '8px 4px', fontWeight: 600 }}>{y}</td>
+                    <td style={{ padding: '8px 4px' }}>{fmt(v?.ac)}</td>
+                    <td style={{ padding: '8px 4px' }}>{fmt(v?.cb)}</td>
+                    <td style={{ padding: '8px 4px', fontWeight: 700 }}>{fmt(v?.total)}</td>
+                    <td style={{ padding: '8px 4px', color: C.muted }}>{v?.segment || '-'}</td>
                   </tr>
                 ))}
                 <tr style={{ borderTop: `2px solid ${C.border}`, textAlign: 'right' }}>
-                  <td style={{ textAlign: 'left', padding: '8px', fontWeight: 600 }}>3 yıl</td>
+                  <td style={{ textAlign: 'left', padding: '8px 4px', fontWeight: 600 }}>3 yıl</td>
                   <td colSpan={2} />
-                  <td style={{ padding: '8px', fontWeight: 700 }}>{fmt(s.total3y)}</td>
+                  <td style={{ padding: '8px 4px', fontWeight: 700 }}>{fmt(s.total3y)}</td>
                   <td />
                 </tr>
               </tbody>

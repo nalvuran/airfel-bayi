@@ -10,7 +10,7 @@ import { parseCustomerData, parseLegacy } from '../utils/importers';
 import { toIndexEntry, writeDealerIndex, rebuildDealerIndexFromFirestore, clearDealerIndexCache } from '../utils/dealerIndex';
 
 const C = {
-  red: '#BE1E2D', redBg: '#fdf0f0', text: '#2b2b2b', muted: '#7a7570',
+  red: '#B91724', redBg: '#fdf0f0', text: '#2b2b2b', muted: '#7a7570',
   border: '#e5e3df', ok: '#1f7a4d', okBg: '#eaf6ef', warn: '#9a6400', warnBg: '#fff6e0',
 };
 const BATCH_SIZE = 400;
@@ -79,13 +79,17 @@ function Message({ tone, children }) {
   return <div style={{ background: bg, color: fg, borderRadius: 8, padding: '12px 16px', fontSize: 14, marginTop: 16 }}>{children}</div>;
 }
 
-function FilePicker({ onFile, disabled }) {
+function FilePicker({ onFile, disabled, fileName }) {
   return (
-    <input
-      type="file" accept=".xlsx,.xls" disabled={disabled}
-      onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); e.target.value = ''; }}
-      style={{ fontSize: 14 }}
-    />
+    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', cursor: disabled ? 'not-allowed' : 'pointer' }}>
+      <span style={{ ...btn(false, disabled), display: 'inline-block' }}>Excel dosyası seç</span>
+      <span style={{ fontSize: 13, color: C.muted, wordBreak: 'break-all' }}>{fileName || 'Dosya seçilmedi'}</span>
+      <input
+        type="file" accept=".xlsx,.xls" disabled={disabled}
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); e.target.value = ''; }}
+        style={{ display: 'none' }}
+      />
+    </label>
   );
 }
 
@@ -142,7 +146,7 @@ function CustomerDataSection({ user }) {
       <p style={{ fontSize: 14, color: C.muted, margin: '6px 0 16px' }}>
         Customer Data Excel dosyasını seç. Mevcut bayiler güncellenir, yeniler eklenir; uygulamada girilen diğer bilgiler silinmez.
       </p>
-      <FilePicker onFile={onFile} disabled={state === 'writing'} />
+      <FilePicker onFile={onFile} disabled={state === 'writing'} fileName={fileName} />
 
       {s && (
         <>
@@ -254,7 +258,7 @@ function LegacySection({ user }) {
       <p style={{ fontSize: 14, color: C.muted, margin: '6px 0 16px' }}>
         Google Sheets'teki eski saha kayıtlarının Excel çıktısını seç. Her satır ayrı bir kayıt olarak aktarılır, hiçbiri birleştirilmez veya atlanmaz. Aktarım tekrar çalıştırılırsa zaten içeride olan kayıtlar yeniden yazılmaz.
       </p>
-      <FilePicker onFile={onFile} disabled={busy} />
+      <FilePicker onFile={onFile} disabled={busy} fileName={fileName} />
       {state === 'reading' && <Message tone="warn">Dosya ve mevcut bayiler okunuyor…</Message>}
 
       {s && (

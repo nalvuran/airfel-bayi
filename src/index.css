@@ -1,111 +1,118 @@
+/* Airfel Bayi Takip — temel stiller */
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  --red: #B91724;
+  --red-bg: #fdf0f0;
+  --bg: #f8f7f5;
+  --text: #2b2b2b;
+  --muted: #7a7570;
+  --border: #e5e3df;
+  --header-h: 56px;
+  --tabbar-h: 64px;
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
-
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
+  color-scheme: light; /* telefon karanlık moddayken form kutuları siyaha dönmesin */
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   color: var(--text);
   background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+}
 
-  @media (max-width: 1024px) {
-    font-size: 16px;
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); }
+body { font-size: 15px; line-height: 1.45; }
+#root { min-height: 100vh; }
+h1, h2, h3 { margin: 0; font-weight: 700; letter-spacing: -0.01em; line-height: 1.25; }
+p { margin: 0; }
+img { max-width: 100%; }
+button, input, select, textarea { font: inherit; color: inherit; }
+input, select, textarea { background: #fff; }
+a { color: inherit; }
+
+/* ---------- Uygulama kabuğu ---------- */
+
+.app-header {
+  position: sticky; top: 0; z-index: 100;
+  background: #fff; border-bottom: 1px solid var(--border);
+  padding: env(safe-area-inset-top) 20px 0;
+}
+.app-header-inner {
+  height: var(--header-h); max-width: 1200px; margin: 0 auto;
+  display: flex; align-items: center; gap: 24px;
+}
+.app-logo { display: flex; align-items: center; flex-shrink: 0; }
+.app-logo img { height: 26px; width: auto; display: block; }
+
+.top-nav { display: flex; gap: 2px; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.top-nav::-webkit-scrollbar { display: none; }
+.top-nav a {
+  padding: 8px 12px; border-radius: 8px; font-size: 14px; font-weight: 600;
+  color: #4a4a4a; text-decoration: none; white-space: nowrap;
+}
+.top-nav a:hover { background: var(--bg); }
+.top-nav a.active { color: var(--red); background: var(--red-bg); }
+
+.user-box { display: flex; align-items: center; gap: 12px; margin-left: auto; flex-shrink: 0; }
+.user-name { font-size: 13px; color: #4a4a4a; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.role-chip { background: var(--red-bg); color: var(--red); padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+.logout-btn {
+  display: flex; align-items: center; gap: 6px;
+  background: #fff; color: var(--text); border: 1.5px solid var(--border); border-radius: 8px;
+  padding: 7px 12px; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.logout-btn svg { width: 18px; height: 18px; }
+
+.app-main { max-width: 1200px; margin: 0 auto; padding: 24px 20px 40px; }
+
+/* Alt sekme çubuğu: sadece telefonda */
+.tabbar { display: none; }
+
+@media (max-width: 767px) {
+  .app-header { padding-left: 14px; padding-right: 10px; }
+  .app-header-inner { gap: 12px; }
+  .app-logo img { height: 24px; }
+  .top-nav, .user-name, .role-chip { display: none; }
+  .logout-btn { border: none; padding: 8px; }
+  .logout-btn span { display: none; }
+  .logout-btn svg { width: 22px; height: 22px; }
+
+  .app-main { padding: 14px 12px calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 20px); }
+
+  .tabbar {
+    display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 100;
+    background: rgba(255, 255, 255, 0.97); border-top: 1px solid var(--border);
+    padding-bottom: env(safe-area-inset-bottom);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   }
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+  .tabbar a {
+    flex: 1; height: var(--tabbar-h);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    font-size: 11px; font-weight: 600; color: #8a8580; text-decoration: none;
   }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
+  .tabbar a svg { width: 24px; height: 24px; }
+  .tabbar a.active { color: var(--red); }
+  .tabbar a.tab-add span.plus {
+    width: 46px; height: 46px; border-radius: 50%; background: var(--red); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 12px rgba(185, 23, 36, 0.35); margin-top: -14px;
   }
+  .tabbar a.tab-add span.plus svg { width: 26px; height: 26px; }
+
+  /* Telefonda iOS'un yazı alanına yakınlaştırmasını önler */
+  input, select, textarea { font-size: 16px !important; }
 }
 
-body {
-  margin: 0;
-}
-
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
-}
-
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
-}
-
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
+/* ---------- Filtre paneli: telefonda "Filtreler" butonunun arkasında ---------- */
+.filters-toggle { display: none; }
+@media (max-width: 767px) {
+  .filters-toggle {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: #fff; border: 1.5px solid var(--border); border-radius: 8px;
+    padding: 7px 12px; font-size: 14px; font-weight: 600; color: var(--text); cursor: pointer;
   }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
+  .filters-toggle .count {
+    background: var(--red); color: #fff; border-radius: 10px; font-size: 11px; padding: 1px 7px;
   }
-}
-p {
-  margin: 0;
-}
-
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
-}
-
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+  .filters-collapsible:not(.open) { display: none !important; }
+  .filters-collapsible { grid-template-columns: 1fr !important; }
 }

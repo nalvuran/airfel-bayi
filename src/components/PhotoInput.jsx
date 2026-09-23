@@ -3,7 +3,7 @@
 import { useEffect, useId, useState } from 'react';
 import { compressImage } from '../utils/image';
 
-const C = { red: '#BE1E2D', text: '#2b2b2b', muted: '#7a7570', border: '#e5e3df', soft: '#f8f7f5' };
+const C = { red: '#B91724', text: '#2b2b2b', muted: '#7a7570', border: '#e5e3df', soft: '#f8f7f5' };
 
 export default function PhotoInput({ label, value, onChange, required, disabled }) {
   const id = useId();

@@ -8,7 +8,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { getDealerIndex } from '../utils/dealerIndex';
 
 const C = {
-  red: '#BE1E2D', redBg: '#fdf0f0', text: '#2b2b2b', muted: '#7a7570',
+  red: '#B91724', redBg: '#fdf0f0', text: '#2b2b2b', muted: '#7a7570',
   border: '#e5e3df', soft: '#f8f7f5', ok: '#1f7a4d', okBg: '#eaf6ef', warn: '#9a6400', warnBg: '#fff6e0',
 };
 const ROLES = { admin: 'Yönetici', rep: 'Temsilci' };
@@ -89,6 +89,7 @@ function RepSelect({ value, onChange, reps, takenBy, selfUid }) {
 /* ---------- Yeni kullanıcı ---------- */
 
 function CreateUser({ reps, takenBy, onCreated, adminEmail }) {
+  const [open, setOpen] = useState(false);
   const [f, setF] = useState({ name: '', email: '', role: 'rep', salesRepKey: '', password: '' });
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(null);
@@ -146,9 +147,20 @@ function CreateUser({ reps, takenBy, onCreated, adminEmail }) {
     }
   };
 
+  if (!open) {
+    return (
+      <div style={{ marginBottom: 16 }}>
+        <button style={btn(true, false)} onClick={() => setOpen(true)}>+ Yeni kullanıcı</button>
+      </div>
+    );
+  }
+
   return (
     <section style={card}>
-      <h2 style={{ fontSize: 17, margin: '0 0 4px', color: C.text }}>Yeni kullanıcı</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+        <h2 style={{ fontSize: 17, margin: '0 0 4px', color: C.text }}>Yeni kullanıcı</h2>
+        <button style={linkBtn} onClick={() => { setOpen(false); setMsg(null); }}>Kapat</button>
+      </div>
       <p style={{ fontSize: 13, color: C.muted, margin: '0 0 16px' }}>
         Şifreyi boş bırakırsan kullanıcıya kendi şifresini belirleyeceği bir e-posta gider.
       </p>

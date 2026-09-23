@@ -6,7 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { getDealerIndex, getCachedDealerIndex, fold } from '../utils/dealerIndex';
 
 const C = {
-  red: '#BE1E2D', redBg: '#fdf0f0', text: '#2b2b2b', muted: '#7a7570',
+  red: '#B91724', redBg: '#fdf0f0', text: '#2b2b2b', muted: '#7a7570',
   border: '#e5e3df', soft: '#f8f7f5', ok: '#1f7a4d', okBg: '#eaf6ef', warn: '#9a6400', warnBg: '#fff6e0',
 };
 const PAGE = 100;
@@ -46,6 +46,7 @@ export default function DealersPage() {
   const [segment, setSegment] = useState('');
   const [sort, setSort] = useState('sales');
   const [limit, setLimit] = useState(PAGE);
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     getDealerIndex(db).then(setData).catch((e) => setError(e.message));
@@ -74,6 +75,7 @@ export default function DealersPage() {
   }, [data, q, mine, myKey, city, rep, status, segment, sort]);
 
   const anyFilter = q || city || rep || status || segment;
+  const activeFilters = [city, rep, status, segment].filter(Boolean).length + (sort !== 'sales' ? 1 : 0);
   const clearAll = () => { setQ(''); setCity(''); setRep(''); setStatus(''); setSegment(''); };
 
   if (error) {
@@ -104,7 +106,7 @@ export default function DealersPage() {
           placeholder="Bayi adı, Platform ID veya ilçe ara"
           style={{ ...input, width: '100%', boxSizing: 'border-box', fontSize: 15, padding: '11px 14px' }}
         />
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginTop: 10 }}>
+        <div className={`filters-collapsible ${showFilters ? 'open' : ''}`} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginTop: 10 }}>
           <select value={city} onChange={(e) => setCity(e.target.value)} style={input}>
             <option value="">Tüm iller</option>
             {options.cities.map((x) => <option key={x}>{x}</option>)}
@@ -128,6 +130,9 @@ export default function DealersPage() {
           </select>
         </div>
         <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginTop: 12, flexWrap: 'wrap' }}>
+          <button type="button" className="filters-toggle" onClick={() => setShowFilters((x) => !x)} aria-expanded={showFilters}>
+            Filtreler {activeFilters > 0 && <span className="count">{activeFilters}</span>}
+          </button>
           {myKey && (
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, color: C.text, cursor: 'pointer' }}>
               <input type="checkbox" checked={mine} onChange={(e) => setMine(e.target.checked)} />
@@ -183,3 +188,4 @@ export default function DealersPage() {
     </div>
   );
 }
+

@@ -30,24 +30,19 @@ export default function Login() {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      fontFamily: 'system-ui, sans-serif'
+      padding: 16
     }}>
       <div style={{
         background: 'white',
         borderRadius: 16,
-        padding: 40,
+        padding: 'clamp(24px, 7vw, 40px)',
         width: '100%',
         maxWidth: 400,
         boxShadow: '0 8px 32px rgba(0,0,0,0.10)'
       }}>
         {/* Logo */}
-        <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <div style={{ fontSize: 48, fontWeight: 700, color: '#BE1E2D', fontFamily: 'Georgia, serif' }}>
-            airfel
-          </div>
-          <div style={{ fontSize: 14, color: '#9a9590', fontStyle: 'italic' }}>
-            Daima Senden Yana
-          </div>
+        <div style={{ textAlign: 'center', marginBottom: 24 }}>
+          <img src="/logo-full.png" alt="airfel — Daima senden yana" style={{ width: 190, maxWidth: '70%', height: 'auto' }} />
         </div>
 
         <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 24, color: '#1a1a1a', textAlign: 'center' }}>
@@ -118,7 +113,7 @@ export default function Login() {
             disabled={loading}
             style={{
               width: '100%',
-              background: loading ? '#ccc' : '#BE1E2D',
+              background: loading ? '#ccc' : '#B91724',
               color: 'white',
               border: 'none',
               borderRadius: 10,

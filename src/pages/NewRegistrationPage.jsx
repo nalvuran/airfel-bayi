@@ -10,7 +10,7 @@ import PhotoInput from '../components/PhotoInput';
 import { clearRegistrationsCache } from './RegistrationsPage';
 
 const C = {
-  red: '#BE1E2D', redBg: '#fdf0f0', text: '#2b2b2b', muted: '#7a7570',
+  red: '#B91724', redBg: '#fdf0f0', text: '#2b2b2b', muted: '#7a7570',
   border: '#e5e3df', soft: '#f8f7f5', ok: '#1f7a4d', okBg: '#eaf6ef', warn: '#9a6400', warnBg: '#fff6e0',
 };
 const card = { background: 'white', border: `1px solid ${C.border}`, borderRadius: 12, padding: 18, marginBottom: 14 };

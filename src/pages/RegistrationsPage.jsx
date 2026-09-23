@@ -8,7 +8,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { fold, getDealerIndex } from '../utils/dealerIndex';
 
 const C = {
-  red: '#BE1E2D', redBg: '#fdf0f0', text: '#2b2b2b', muted: '#7a7570',
+  red: '#B91724', redBg: '#fdf0f0', text: '#2b2b2b', muted: '#7a7570',
   border: '#e5e3df', soft: '#f8f7f5', ok: '#1f7a4d', okBg: '#eaf6ef', warn: '#9a6400', warnBg: '#fff6e0',
 };
 const PAGE = 50;
@@ -49,6 +49,7 @@ export default function RegistrationsPage() {
   const [rep, setRep] = useState('');
   const [special, setSpecial] = useState('');
   const [limit, setLimit] = useState(PAGE);
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     const key = `${scope}:${user.uid}`;
@@ -125,7 +126,10 @@ export default function RegistrationsPage() {
         )}
         <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Bayi, firma, görüşülen kişi veya Platform ID ara"
           style={{ ...input, width: '100%', boxSizing: 'border-box', fontSize: 15, padding: '11px 14px' }} />
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10, marginTop: 10 }}>
+        <button type="button" className="filters-toggle" style={{ marginTop: 10 }} onClick={() => setShowFilters((x) => !x)} aria-expanded={showFilters}>
+          Filtreler {[period, special, rep].filter(Boolean).length > 0 && <span className="count">{[period, special, rep].filter(Boolean).length}</span>}
+        </button>
+        <div className={`filters-collapsible ${showFilters ? 'open' : ''}`} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10, marginTop: 10 }}>
           <select value={period} onChange={(e) => setPeriod(e.target.value)} style={input}>
             <option value="">Tüm zamanlar</option>
             <option value="7">Son 7 gün</option>

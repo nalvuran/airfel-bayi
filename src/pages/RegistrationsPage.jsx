@@ -6,11 +6,13 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { fold, getDealerIndex } from '../utils/dealerIndex';
-import { Alert, Badge, Empty, PageHeader, SkeletonRows } from '../components/ui';
+import { Alert, Empty, PageHeader, Skeleton } from '../components/ui';
+import RegistrationCard from '../components/RegistrationCard';
+import { PhotoLightbox } from '../components/Photos';
+import { useRepProfiles } from '../utils/repProfiles';
 
-const PAGE = 50;
+const PAGE = 24;
 const toDate = (v) => (v?.toDate ? v.toDate() : v instanceof Date ? v : null);
-const fmtDate = (d) => (d ? d.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-');
 
 // Oturum boyunca bellekte tut; yeni kayıt girilince sayfa açılışında yenilenir
 let cache = { key: null, rows: null, at: 0 };
@@ -37,6 +39,8 @@ export default function RegistrationsPage() {
   const [special, setSpecial] = useState('');
   const [limit, setLimit] = useState(PAGE);
   const [showFilters, setShowFilters] = useState(false);
+  const [photo, setPhoto] = useState(null);
+  const profiles = useRepProfiles(db);
 
   useEffect(() => {
     const key = `${scope}:${user.uid}`;
@@ -58,7 +62,7 @@ export default function RegistrationsPage() {
 
   useEffect(() => {
     getDealerIndex(db)
-      .then((idx) => setNames(Object.fromEntries(idx.entries.map((e) => [e.i, { n: e.n, c: e.c, d: e.d }]))))
+      .then((idx) => setNames(Object.fromEntries(idx.entries.map((e) => [e.i, { n: e.n, c: e.c, d: e.d, v: e.v }]))))
       .catch(() => {});
   }, []);
 
@@ -93,7 +97,7 @@ export default function RegistrationsPage() {
   const activeFilters = [period, special, rep].filter(Boolean).length;
 
   return (
-    <div className="page">
+    <div className="page" style={{ maxWidth: 1240 }}>
       <PageHeader
         title={title}
         subtitle={rows ? `${filtered.length} / ${rows.length} kayıt` : 'Yükleniyor…'}
@@ -137,7 +141,16 @@ export default function RegistrationsPage() {
       </div>
 
       {error && <Alert tone="danger">Kayıtlar yüklenemedi: {error}</Alert>}
-      {!rows && !error && <SkeletonRows rows={6} />}
+      {!rows && !error && (
+        <div className="rc-grid" aria-busy="true">
+          {Array.from({ length: 6 }, (_, i) => (
+            <div key={i} className="rc">
+              <Skeleton height={140} radius={0} />
+              <div className="rc-body"><Skeleton width="80%" height={16} /><Skeleton width="50%" height={12} style={{ marginTop: 8 }} /><Skeleton height={70} style={{ marginTop: 14 }} /></div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {rows && (filtered.length === 0 ? (
         <div className="card">
@@ -146,38 +159,21 @@ export default function RegistrationsPage() {
           </Empty>
         </div>
       ) : (
-        <div className="card card-flush">
-          {filtered.slice(0, limit).map((r) => {
-            const dn = names[r.dealerId];
-            const photoCount = Object.values(r.photoFiles || {}).filter(Boolean).length;
-            return (
-              <Link key={r.id} to={r.dealerId ? `/dealers/${encodeURIComponent(r.dealerId)}` : '#'} className="list-row">
-                <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'nowrap', alignItems: 'flex-start' }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div className="list-row-title">{dn?.n || r.dealerName || r.companyTitle || 'Bayi eşleşmemiş'}</div>
-                    <div className="list-row-meta">
-                      {[r.contactName, dn && [dn.d, dn.c].filter(Boolean).join(', '), scope === 'all' && r.salesRep].filter(Boolean).join(' · ')}
-                    </div>
-                  </div>
-                  <div className="text-sm muted num" style={{ whiteSpace: 'nowrap', fontWeight: 600 }}>{fmtDate(r.date)}</div>
-                </div>
-                <div className="row mt-8" style={{ gap: 6 }}>
-                  {r.signRequest && <Badge>Tabela talebi</Badge>}
-                  {r.standRequest && <Badge>Stant talebi</Badge>}
-                  {waitingInstall(r) && <Badge tone="warn">Kurulum bekliyor</Badge>}
-                  {r.afterPhotosAt || r.photoFiles?.exteriorAfter || r.photoFiles?.interiorAfter ? <Badge tone="success">Kurulum fotoğrafı var</Badge> : null}
-                  {r.needsReview && <Badge tone="danger">Kontrol gerekli</Badge>}
-                  <Badge>{photoCount} fotoğraf</Badge>
-                  {r.source === 'legacySheets' && <Badge>Eski sistem</Badge>}
-                </div>
-              </Link>
-            );
-          })}
+        <>
+          <div className="rc-grid">
+            {filtered.slice(0, limit).map((r) => (
+              <RegistrationCard key={r.id} r={r} dealer={names[r.dealerId]} repPhoto={profiles[r.salesRepKey]?.url} onOpenPhoto={setPhoto} />
+            ))}
+          </div>
           {filtered.length > limit && (
-            <button className="list-more" onClick={() => setLimit((l) => l + PAGE)}>Daha fazla göster ({filtered.length - limit} kaldı)</button>
+            <button className="btn btn-secondary btn-block mt-16" onClick={() => setLimit((l) => l + PAGE)}>
+              Daha fazla göster ({filtered.length - limit} kaldı)
+            </button>
           )}
-        </div>
+        </>
       ))}
+
+      <PhotoLightbox photo={photo} onClose={() => setPhoto(null)} />
     </div>
   );
 }

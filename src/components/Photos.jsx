@@ -75,3 +75,16 @@ export function Lightbox({ photo, onClose }) {
     </div>
   );
 }
+
+// Fotoğrafı kimliğinden yükleyip büyütülmüş olarak gösterir (kayıt kartlarında kullanılır)
+export function PhotoLightbox({ photo, onClose }) {
+  const { url, status } = usePhotoUrl(photo?.photoId);
+  if (!photo) return null;
+  if (status === 'ok') return <Lightbox photo={{ src: url, label: photo.label }} onClose={onClose} />;
+  return (
+    <div onClick={onClose} role="dialog" aria-modal="true"
+      style={{ position: 'fixed', inset: 0, background: 'rgba(15,15,15,.88)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700 }}>
+      {status === 'loading' ? 'Fotoğraf yükleniyor…' : 'Fotoğraf açılamadı'}
+    </div>
+  );
+}

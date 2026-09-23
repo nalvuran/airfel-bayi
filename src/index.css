@@ -216,7 +216,7 @@
   .btn-primary:not(:disabled):hover { background: var(--red-hover); }
   .btn-secondary { background: var(--surface); color: var(--ink); border-color: var(--border); }
   .btn-secondary:not(:disabled):hover { border-color: var(--border-strong); background: var(--surface-2); }
-  .btn-link { background: none; border: none; padding: 0; color: var(--red); font-weight: 800; font-size: 14px; cursor: pointer; }
+  .btn-link { background: none; border: none; padding: 0; color: var(--red); font-weight: 800; font-size: 14px; cursor: pointer; text-decoration: none; }
   .btn-link:disabled { background: none; color: var(--faint); cursor: not-allowed; }
   .btn-lg { padding: 14px 20px; font-size: 16px; border-radius: 12px; }
   .btn-block { width: 100%; }
@@ -343,4 +343,45 @@
   .home-action-primary { background: var(--red); border-color: var(--red); color: #fff; box-shadow: 0 4px 14px rgba(185, 23, 36, 0.22); }
   .home-action-primary:hover { background: var(--red-hover); border-color: var(--red-hover); }
   .home-action-primary .home-action-desc, .home-action-primary .home-action-arrow { color: rgba(255, 255, 255, 0.85); }
+  
+  /* ==========================================================================
+     Kayıt kartı
+     ========================================================================== */
+  
+  .rc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 14px; }
+  .rc {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    box-shadow: var(--shadow); overflow: hidden; display: flex; flex-direction: column;
+  }
+  .rc-photos { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; background: var(--border); }
+  .rc-thumb {
+    position: relative; aspect-ratio: 4 / 3; padding: 0; border: none; background: var(--surface-2);
+    display: block; overflow: hidden; cursor: zoom-in;
+  }
+  .rc-thumb:disabled { cursor: default; }
+  .rc-thumb img, .rc-thumb-fill { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 0; }
+  .rc-thumb-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; color: var(--faint); font-weight: 700; }
+  .rc-thumb-label {
+    position: absolute; left: 6px; bottom: 6px; background: rgba(185, 23, 36, 0.92); color: #fff;
+    font-size: 10px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; padding: 3px 7px; border-radius: 5px;
+  }
+  .rc-body { padding: 14px 16px 12px; display: flex; flex-direction: column; flex: 1; }
+  .rc-title { font-size: 15px; font-weight: 800; color: var(--ink); text-decoration: none; line-height: 1.3; text-transform: uppercase; }
+  a.rc-title:hover { color: var(--red); }
+  .rc-contact { font-size: 12.5px; color: var(--muted); font-weight: 700; margin-top: 3px; text-transform: uppercase; letter-spacing: 0.02em; }
+  .rc-meta { margin-top: 10px; display: grid; gap: 4px; font-size: 13px; }
+  .rc-rep { display: flex; align-items: center; gap: 8px; font-weight: 800; color: var(--red); }
+  .rc-line { font-size: 12.5px; font-weight: 600; }
+  .rc-flags { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+  .rc-yesno { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; }
+  .rc-footer {
+    margin-top: auto; padding-top: 10px; border-top: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    font-size: 12px; color: var(--faint); font-weight: 700;
+  }
+  .rc-body > .rc-footer { margin-top: 12px; }
+  
+  @media (max-width: 767px) {
+    .rc-grid { grid-template-columns: 1fr; }
+  }
   

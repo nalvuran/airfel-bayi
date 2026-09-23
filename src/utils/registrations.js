@@ -1,6 +1,7 @@
 // src/utils/registrations.js
 // Saha kaydı ve fotoğraflarını tek seferde (atomik) yazar: ya hepsi kaydedilir ya hiçbiri.
 import { Bytes, collection, doc, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { makeThumb } from './image';
 
 function addPhoto(batch, db, regId, slot, photo, uid) {
   const photoId = `${regId}_${slot}_${Date.now().toString(36)}`;
@@ -26,8 +27,21 @@ export async function createRegistration(db, { fields, photos, profile, user }) 
   Object.entries(photos).forEach(([slot, p]) => {
     if (p) photoFiles[slot] = addPhoto(batch, db, ref.id, slot, p, user.uid);
   });
+  // Kart önizlemeleri (kayıtla aynı anda yazılır)
+  const thumbData = { uploadedBy: user.uid, createdAt: serverTimestamp() };
+  let hasThumbs = false;
+  for (const slot of ['exterior', 'interior']) {
+    if (!photos[slot]) continue;
+    try {
+      thumbData[slot] = Bytes.fromUint8Array(await makeThumb(photos[slot].blob));
+      hasThumbs = true;
+    } catch { /* önizleme oluşmazsa kayıt yine de kaydedilir */ }
+  }
+  if (hasThumbs) batch.set(doc(db, 'thumbs', ref.id), thumbData);
+
   batch.set(ref, {
     ...fields,
+    thumbs: hasThumbs,
     photos: {},
     photoFiles,
     photoStorage: 'firestore',

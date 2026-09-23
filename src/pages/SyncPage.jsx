@@ -8,6 +8,7 @@ import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { parseCustomerData, parseLegacy } from '../utils/importers';
 import { PageHeader } from '../components/ui';
+import { buildMissingThumbs } from '../utils/thumbs';
 import { toIndexEntry, writeDealerIndex, rebuildDealerIndexFromFirestore, clearDealerIndexCache } from '../utils/dealerIndex';
 
 const C = {
@@ -353,6 +354,46 @@ function IndexSection() {
   );
 }
 
+/* ---------- 4) Kart önizlemeleri ---------- */
+
+function ThumbsSection({ user }) {
+  const [state, setState] = useState('idle');
+  const [prog, setProg] = useState(null);
+  const [msg, setMsg] = useState(null);
+
+  const run = async () => {
+    setState('working'); setMsg(null); setProg(null);
+    try {
+      const res = await buildMissingThumbs(db, { uid: user.uid, onProgress: setProg });
+      setState('done');
+      if (res.total === 0) {
+        setMsg({ tone: 'ok', text: `Tüm kayıtların önizlemesi zaten var (${res.alreadyDone} kayıt).` });
+      } else if (res.failed === 0) {
+        setMsg({ tone: 'ok', text: `${res.done} kaydın önizlemesi oluşturuldu. Kayıtlar sayfasındaki kartlarda artık fotoğraflar görünüyor.` });
+      } else {
+        setMsg({ tone: 'error', text: `${res.done} kayıt tamam, ${res.failed} kayıtta sorun çıktı. Butona tekrar basınca sadece eksikler denenir. İlk hata: ${res.errors[0]}` });
+      }
+    } catch (e) {
+      setState('error');
+      setMsg({ tone: 'error', text: `İşlem yarıda kaldı: ${e.message}. Tekrar basınca kaldığı yerden devam eder.` });
+    }
+  };
+
+  return (
+    <section style={card}>
+      <h2 className="card-title">Kart önizlemelerini oluştur</h2>
+      <p style={{ fontSize: 14, color: C.muted, margin: '6px 0 16px' }}>
+        Kayıtlar sayfasındaki kartlarda fotoğrafların küçük kopyaları gösterilir. Yeni kayıtlarda bunlar kendiliğinden oluşur; bu buton, önizlemesi olmayan eski kayıtlar içindir. Tek seferlik bir işlemdir ve birkaç dakika sürebilir; bu sırada sayfayı kapatma.
+      </p>
+      <button style={btn(true, state === 'working')} disabled={state === 'working'} onClick={run}>
+        {state === 'working' ? 'Oluşturuluyor…' : 'Önizlemeleri oluştur'}
+      </button>
+      {prog && prog.total > 0 && <Progress done={prog.done + prog.failed} total={prog.total} />}
+      {msg && <Message tone={msg.tone}>{msg.text}</Message>}
+    </section>
+  );
+}
+
 export default function SyncPage() {
   const { user } = useAuth();
   return (
@@ -361,6 +402,7 @@ export default function SyncPage() {
       <CustomerDataSection user={user} />
       <LegacySection user={user} />
       <IndexSection />
+      <ThumbsSection user={user} />
     </div>
   );
 }

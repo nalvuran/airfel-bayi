@@ -73,3 +73,27 @@ export async function squareAvatar(file, size = 320) {
     URL.revokeObjectURL(url);
   }
 }
+
+// Kart önizlemesi: 4:3 oranında ortadan kırpılmış küçük JPEG (~10-20 KB)
+export async function makeThumb(source, width = 360) {
+  const blob = source instanceof Blob ? source : new Blob([source], { type: 'image/jpeg' });
+  const url = URL.createObjectURL(blob);
+  try {
+    const img = await loadImage(url);
+    const height = Math.round(width * 3 / 4);
+    const target = width / height;
+    const iw = img.naturalWidth, ih = img.naturalHeight;
+    let sw = iw, sh = ih, sx = 0, sy = 0;
+    if (iw / ih > target) { sw = ih * target; sx = (iw - sw) / 2; } else { sh = iw / target; sy = (ih - sh) / 2; }
+    const canvas = document.createElement('canvas');
+    canvas.width = width; canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, width, height);
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, width, height);
+    const out = await toBlob(canvas, 0.7);
+    if (!out) throw new Error('Önizleme oluşturulamadı.');
+    return new Uint8Array(await out.arrayBuffer());
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}

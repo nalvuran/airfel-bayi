@@ -3,16 +3,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { loadDealerIndex, fold } from '../utils/dealerIndex';
+import { getDealerIndex, getCachedDealerIndex, fold } from '../utils/dealerIndex';
 
 const C = {
   red: '#BE1E2D', redBg: '#fdf0f0', text: '#2b2b2b', muted: '#7a7570',
   border: '#e5e3df', soft: '#f8f7f5', ok: '#1f7a4d', okBg: '#eaf6ef', warn: '#9a6400', warnBg: '#fff6e0',
 };
 const PAGE = 100;
-
-// Liste, oturum boyunca bellekte tutulur: sayfalar arası gidip gelince tekrar okunmaz
-let cache = null;
 
 const input = {
   border: `1.5px solid ${C.border}`, borderRadius: 8, padding: '9px 12px',
@@ -38,7 +35,7 @@ export default function DealersPage() {
   const { userProfile } = useAuth();
   const myKey = userProfile?.salesRepKey || null;
 
-  const [data, setData] = useState(cache);
+  const [data, setData] = useState(getCachedDealerIndex());
   const [error, setError] = useState(null);
 
   const [q, setQ] = useState('');
@@ -51,10 +48,7 @@ export default function DealersPage() {
   const [limit, setLimit] = useState(PAGE);
 
   useEffect(() => {
-    if (cache) return;
-    loadDealerIndex(db)
-      .then((res) => { cache = res; setData(res); })
-      .catch((e) => setError(e.message));
+    getDealerIndex(db).then(setData).catch((e) => setError(e.message));
   }, []);
 
   useEffect(() => { setMine(!!myKey); }, [myKey]);
@@ -63,7 +57,7 @@ export default function DealersPage() {
   const options = useMemo(() => {
     const e = data?.entries ?? [];
     const uniq = (f) => [...new Set(e.map(f).filter(Boolean))].sort(trSort);
-    return { cities: uniq((x) => x.c), reps: uniq((x) => x.r), segments: uniq((x) => x.g) };
+    return { cities: uniq((x) => x.c), reps: uniq((x) => x.k), segments: uniq((x) => x.g) };
   }, [data]);
 
   const filtered = useMemo(() => {
@@ -72,7 +66,7 @@ export default function DealersPage() {
     const list = data.entries.filter((e) =>
       (!mine || e.k === myKey) &&
       (!city || e.c === city) &&
-      (!rep || e.r === rep) &&
+      (!rep || e.k === rep) &&
       (!status || e.s === status) &&
       (!segment || e.g === segment) &&
       words.every((w) => e.search.includes(w)));
@@ -189,5 +183,3 @@ export default function DealersPage() {
     </div>
   );
 }
-
-export function clearDealerCache() { cache = null; }

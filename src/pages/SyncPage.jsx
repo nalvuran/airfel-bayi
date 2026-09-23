@@ -7,8 +7,7 @@ import {
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { parseCustomerData, parseLegacy } from '../utils/importers';
-import { toIndexEntry, writeDealerIndex, rebuildDealerIndexFromFirestore } from '../utils/dealerIndex';
-import { clearDealerCache } from './DealersPage';
+import { toIndexEntry, writeDealerIndex, rebuildDealerIndexFromFirestore, clearDealerIndexCache } from '../utils/dealerIndex';
 
 const C = {
   red: '#BE1E2D', redBg: '#fdf0f0', text: '#2b2b2b', muted: '#7a7570',
@@ -123,7 +122,7 @@ function CustomerDataSection({ user }) {
       await (count === parsed.dealers.length
         ? writeDealerIndex(db, parsed.dealers.map((d) => toIndexEntry(d.id, d.data)))
         : rebuildDealerIndexFromFirestore(db));
-      clearDealerCache();
+      clearDealerIndexCache();
       await addDoc(collection(db, 'syncLogs'), {
         type: 'customerData', syncId, fileName, by: user.email, at: serverTimestamp(),
         written: n, stats: { ...parsed.stats, duplicateIds: parsed.stats.duplicateIds.length },
@@ -328,7 +327,7 @@ function IndexSection() {
     setState('working'); setMsg(null);
     try {
       const res = await rebuildDealerIndexFromFirestore(db);
-      clearDealerCache();
+      clearDealerIndexCache();
       setState('done');
       setMsg({ tone: 'ok', text: `Bayi dizini oluşturuldu: ${res.count} bayi, ${res.parts} parça. Bayiler sayfası artık bu dizini kullanıyor.` });
     } catch (e) {

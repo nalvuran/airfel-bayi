@@ -64,6 +64,21 @@ export function fold(s) {
     .trim();
 }
 
+// Oturum boyunca bellekte tutulur: sayfalar arasında gidip gelince tekrar okunmaz
+let cache = null;
+let pending = null;
+export function getDealerIndex(db) {
+  if (cache) return Promise.resolve(cache);
+  if (!pending) {
+    pending = loadDealerIndex(db)
+      .then((res) => { cache = res; return res; })
+      .finally(() => { pending = null; });
+  }
+  return pending;
+}
+export function getCachedDealerIndex() { return cache; }
+export function clearDealerIndexCache() { cache = null; }
+
 export async function loadDealerIndex(db) {
   const snap = await getDocs(collection(db, COLL));
   if (snap.empty) return { entries: [], updatedAt: null };

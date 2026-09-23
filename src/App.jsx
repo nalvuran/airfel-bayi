@@ -5,6 +5,7 @@ import Layout from './components/Layout';
 import SyncPage from './pages/SyncPage';
 import DealersPage from './pages/DealersPage';
 import DealerDetailPage from './pages/DealerDetailPage';
+import UsersPage from './pages/UsersPage';
 
 function PrivateRoute({ children }) {
   const { user } = useAuth();
@@ -37,7 +38,7 @@ function AppRoutes() {
                 <Route path="/dealers/:id" element={<DealerDetailPage />} />
                 <Route path="/dashboard" element={<div style={{padding:20}}><h2>Dashboard — yakında</h2></div>} />
                 <Route path="/my-dealers" element={<div style={{padding:20}}><h2>Kayıtlarım — yakında</h2></div>} />
-                <Route path="/admin/users" element={<AdminRoute><div style={{padding:20}}><h2>Kullanıcılar — yakında</h2></div></AdminRoute>} />
+                <Route path="/admin/users" element={<AdminRoute><UsersPage /></AdminRoute>} />
                 <Route path="/admin/sync" element={<AdminRoute><SyncPage /></AdminRoute>} />
               </Routes>
             </Layout>

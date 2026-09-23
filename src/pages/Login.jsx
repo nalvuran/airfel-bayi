@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebase';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const { authError } = useAuth();
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async (e) => {
@@ -97,7 +99,7 @@ export default function Login() {
             />
           </div>
 
-          {error && (
+          {(error || authError) && (
             <div style={{
               background: '#fdf2f2',
               border: '1px solid #f5c6c6',
@@ -107,7 +109,7 @@ export default function Login() {
               fontSize: 13,
               marginBottom: 16
             }}>
-              {error}
+              {error || authError}
             </div>
           )}
 

@@ -7,6 +7,8 @@ import {
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { parseCustomerData, parseLegacy } from '../utils/importers';
+import { toIndexEntry, writeDealerIndex, rebuildDealerIndexFromFirestore } from '../utils/dealerIndex';
+import { clearDealerCache } from './DealersPage';
 
 const C = {
   red: '#BE1E2D', redBg: '#fdf0f0', text: '#2b2b2b', muted: '#7a7570',
@@ -117,12 +119,17 @@ function CustomerDataSection({ user }) {
       const n = await writeInBatches('dealers', parsed.dealers,
         { merge: true, extra: { syncedAt: serverTimestamp(), lastSyncId: syncId } }, onProg);
       const count = (await getCountFromServer(collection(db, 'dealers'))).data().count;
+      // Liste sayfasının kullandığı özet dizini güncelle
+      await (count === parsed.dealers.length
+        ? writeDealerIndex(db, parsed.dealers.map((d) => toIndexEntry(d.id, d.data)))
+        : rebuildDealerIndexFromFirestore(db));
+      clearDealerCache();
       await addDoc(collection(db, 'syncLogs'), {
         type: 'customerData', syncId, fileName, by: user.email, at: serverTimestamp(),
         written: n, stats: { ...parsed.stats, duplicateIds: parsed.stats.duplicateIds.length },
       });
       setState('done');
-      setMsg({ tone: 'ok', text: `${n} bayi yazıldı. Firestore'da şu an toplam ${count} bayi var.` });
+      setMsg({ tone: 'ok', text: `${n} bayi yazıldı ve bayi listesi güncellendi. Firestore'da şu an toplam ${count} bayi var.` });
     } catch (e) {
       setState('error');
       setMsg({ tone: 'error', text: `Yazma yarıda kaldı (${written} kayıt yazıldı): ${e.message}. Aynı dosyayı tekrar yüklemek güvenli, kopya oluşmaz.` });
@@ -300,8 +307,8 @@ function LegacySection({ user }) {
             >
               Yedeği indir (JSON)
             </button>
-            <button style={btn(true, busy || toWrite.length === 0)} disabled={busy || toWrite.length === 0} onClick={onWrite}>
-              {state === 'writing' ? 'Aktarılıyor…' : toWrite.length === 0 ? 'Tüm kayıtlar zaten aktarılmış' : `${toWrite.length} kaydı aktar`}
+            <button style={btn(true, busy || state === 'done' || toWrite.length === 0)} disabled={busy || state === 'done' || toWrite.length === 0} onClick={onWrite}>
+              {state === 'writing' ? 'Aktarılıyor…' : state === 'done' ? 'Aktarıldı' : toWrite.length === 0 ? 'Tüm kayıtlar zaten aktarılmış' : `${toWrite.length} kaydı aktar`}
             </button>
           </div>
           {(state === 'writing' || state === 'done') && toWrite.length > 0 && <Progress done={progress} total={toWrite.length} />}
@@ -312,13 +319,44 @@ function LegacySection({ user }) {
   );
 }
 
+/* ---------- 3) Bayi dizini ---------- */
+
+function IndexSection() {
+  const [state, setState] = useState('idle');
+  const [msg, setMsg] = useState(null);
+  const onBuild = async () => {
+    setState('working'); setMsg(null);
+    try {
+      const res = await rebuildDealerIndexFromFirestore(db);
+      clearDealerCache();
+      setState('done');
+      setMsg({ tone: 'ok', text: `Bayi dizini oluşturuldu: ${res.count} bayi, ${res.parts} parça. Bayiler sayfası artık bu dizini kullanıyor.` });
+    } catch (e) {
+      setState('error'); setMsg({ tone: 'error', text: `Dizin oluşturulamadı: ${e.message}` });
+    }
+  };
+  return (
+    <section style={card}>
+      <h2 style={{ fontSize: 18, margin: 0, color: C.text }}>Bayi dizinini oluştur</h2>
+      <p style={{ fontSize: 14, color: C.muted, margin: '6px 0 16px' }}>
+        Bayiler sayfası, hızlı açılması için bayilerin özetini tek bir dizinden okur. Bayi listesi yüklendiğinde dizin kendiliğinden güncellenir; bu butona sadece dizin eksik ya da bozuk görünürse ihtiyaç var.
+      </p>
+      <button style={btn(true, state === 'working')} disabled={state === 'working'} onClick={onBuild}>
+        {state === 'working' ? 'Oluşturuluyor…' : 'Bayi dizinini oluştur'}
+      </button>
+      {msg && <Message tone={msg.tone}>{msg.text}</Message>}
+    </section>
+  );
+}
+
 export default function SyncPage() {
   const { user } = useAuth();
   return (
-    <div style={{ maxWidth: 900, margin: '0 auto' }}>
+    <div style={{ maxWidth: 900, margin: '0 auto', textAlign: 'left' }}>
       <h1 style={{ fontSize: 24, color: C.text, margin: '8px 0 20px' }}>Veri yükle</h1>
       <CustomerDataSection user={user} />
       <LegacySection user={user} />
+      <IndexSection />
     </div>
   );
 }

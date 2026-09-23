@@ -3,6 +3,8 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Login from './pages/Login';
 import Layout from './components/Layout';
 import SyncPage from './pages/SyncPage';
+import DealersPage from './pages/DealersPage';
+import DealerDetailPage from './pages/DealerDetailPage';
 
 function PrivateRoute({ children }) {
   const { user } = useAuth();
@@ -31,7 +33,8 @@ function AppRoutes() {
                     <p style={{ color: '#9a9590', marginTop: 12 }}>Hoş geldiniz! Sol menüden başlayabilirsiniz.</p>
                   </div>
                 } />
-                <Route path="/dealers" element={<div style={{padding:20}}><h2>Bayiler — yakında</h2></div>} />
+                <Route path="/dealers" element={<DealersPage />} />
+                <Route path="/dealers/:id" element={<DealerDetailPage />} />
                 <Route path="/dashboard" element={<div style={{padding:20}}><h2>Dashboard — yakında</h2></div>} />
                 <Route path="/my-dealers" element={<div style={{padding:20}}><h2>Kayıtlarım — yakında</h2></div>} />
                 <Route path="/admin/users" element={<AdminRoute><div style={{padding:20}}><h2>Kullanıcılar — yakında</h2></div></AdminRoute>} />

@@ -269,7 +269,6 @@ export default function DealerDetailPage() {
           <Field label="Segment">{dealer.sbuSegment}</Field>
           {dealer.currentClass && <Field label="Güncel sınıf">{dealer.currentClass}</Field>}
           <Field label="Açılış tarihi">{fmtDate(dealer.createdDate)}</Field>
-          <Field label="İlk giriş">{fmtDate(dealer.firstLoginDate)}</Field>
           {dealer.sapNo && <Field label="SAP No">{dealer.sapNo}</Field>}
           {dealer.servicesStatus && <Field label="Servis">{dealer.servicesStatus}</Field>}
         </div>

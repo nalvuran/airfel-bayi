@@ -74,17 +74,46 @@ function DealerPicker({ entries, value, onChange, myKey }) {
 /* ---------- Evet / Hayır ---------- */
 
 function YesNo({ label, value, onChange }) {
-  const b = (active) => ({
-    flex: 1, padding: '11px 0', fontSize: 15, fontWeight: 600, cursor: 'pointer', borderRadius: 8,
-    border: `1.5px solid ${active ? C.red : C.border}`, background: active ? C.redBg : 'white', color: active ? C.red : C.text,
-  });
+  const b = (active, yes) => {
+    const fg = yes ? C.ok : C.red;
+    const bg = yes ? C.okBg : C.redBg;
+    return {
+      flex: 1, padding: '11px 0', fontSize: 15, fontWeight: 600, cursor: 'pointer', borderRadius: 8,
+      border: `1.5px solid ${active ? fg : C.border}`, background: active ? bg : 'white', color: active ? fg : C.text,
+    };
+  };
   return (
     <div>
       <span style={lbl}>{label}{req}</span>
       <div style={{ display: 'flex', gap: 10 }}>
-        <button type="button" style={b(value === true)} onClick={() => onChange(true)}>Evet</button>
-        <button type="button" style={b(value === false)} onClick={() => onChange(false)}>Hayır</button>
+        <button type="button" style={b(value === true, true)} onClick={() => onChange(true)} aria-pressed={value === true}>Evet</button>
+        <button type="button" style={b(value === false, false)} onClick={() => onChange(false)} aria-pressed={value === false}>Hayır</button>
       </div>
+    </div>
+  );
+}
+
+/* ---------- Telefon: "05" sabit, temsilci kalan 9 haneyi girer ---------- */
+
+const fmtPhoneRest = (d) => [d.slice(0, 2), d.slice(2, 5), d.slice(5, 7), d.slice(7, 9)].filter(Boolean).join(' ');
+
+function PhoneInput({ value, onChange }) {
+  // value: "05" sonrası en fazla 9 rakam
+  return (
+    <div style={{ display: 'flex', alignItems: 'stretch', border: `1.5px solid ${C.border}`, borderRadius: 8, background: 'white', overflow: 'hidden' }}>
+      <span style={{ display: 'flex', alignItems: 'center', padding: '0 4px 0 12px', fontSize: 16, fontWeight: 600, color: C.text, userSelect: 'none' }}>05</span>
+      <input
+        type="tel" inputMode="numeric" autoComplete="off"
+        value={fmtPhoneRest(value)}
+        onChange={(e) => {
+          let d = e.target.value.replace(/\D/g, '');
+          // Kopyala-yapıştırda başta gelen 0 / 05 / 905 / +905 kısmını at
+          if (d.length > 9) d = d.replace(/^(90)?0?5/, '');
+          onChange(d.slice(0, 9));
+        }}
+        placeholder="XX XXX XX XX"
+        style={{ ...input, border: 'none', borderRadius: 0, paddingLeft: 2 }}
+      />
     </div>
   );
 }
@@ -195,6 +224,7 @@ export default function NewRegistrationPage() {
     if (!loc) e.push('Konum ekle (GPS ya da Google Maps linki)');
     if (!photos.exterior) e.push('Dış cephe fotoğrafı ekle');
     if (!photos.interior) e.push('Dükkan içi fotoğrafı ekle');
+    if (f.phone && f.phone.length !== 9) e.push('Telefon numarasını tamamla (05 sonrası 9 hane)');
     if (f.email.trim() && !/^\S+@\S+\.\S+$/.test(f.email.trim())) e.push('E-posta adresini kontrol et');
     return e;
   };
@@ -205,7 +235,6 @@ export default function NewRegistrationPage() {
     if (e.length) { window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }); return; }
     setSaving(true);
     try {
-      const phoneDigits = f.phone.replace(/\D/g, '');
       await createRegistration(db, {
         user, profile: userProfile, photos,
         fields: {
@@ -217,7 +246,7 @@ export default function NewRegistrationPage() {
           distributor: f.distributor.trim() || null,
           signRequest: f.signRequest,
           standRequest: f.standRequest,
-          phone: phoneDigits ? (phoneDigits.length === 10 ? `0${phoneDigits}` : phoneDigits) : null,
+          phone: f.phone ? `05${f.phone}` : null,
           email: f.email.trim().toLowerCase() || null,
           location: loc.location,
           locationSource: loc.locationSource,
@@ -268,7 +297,7 @@ export default function NewRegistrationPage() {
           </div>
           <div>
             <label style={lbl}>Telefon</label>
-            <input type="tel" inputMode="tel" value={f.phone} onChange={(e) => set('phone')(e.target.value)} style={input} placeholder="05xx xxx xx xx" />
+            <PhoneInput value={f.phone} onChange={set('phone')} />
           </div>
           <div>
             <label style={lbl}>E-posta</label>

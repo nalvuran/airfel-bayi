@@ -4,7 +4,7 @@ import { deleteApp, initializeApp } from 'firebase/app';
 import { createUserWithEmailAndPassword, getAuth, sendPasswordResetEmail, signOut } from 'firebase/auth';
 import { collection, doc, getDocs, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import app, { auth, db } from '../firebase';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth, normalizeRole, ROLE_LABELS } from '../contexts/AuthContext';
 import { getDealerIndex } from '../utils/dealerIndex';
 import { Alert, Avatar, PageHeader } from '../components/ui';
 import { removeRepPhoto, saveRepPhoto, titleCase, useRepProfiles } from '../utils/repProfiles';
@@ -14,7 +14,7 @@ const C = {
   red: 'var(--red)', redBg: 'var(--red-soft)', text: 'var(--ink)', muted: 'var(--muted)',
   border: 'var(--border)', soft: 'var(--surface-2)', ok: 'var(--green)', okBg: 'var(--green-soft)', warn: 'var(--amber)', warnBg: 'var(--amber-soft)',
 };
-const ROLES = { admin: 'Yönetici', rep: 'Temsilci' };
+
 
 const card = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: 'var(--shadow)', padding: 20, marginBottom: 16 };
 const input = {
@@ -172,7 +172,7 @@ function CreateUser({ reps, takenBy, onCreated, adminEmail }) {
           <label style={label}>Rol</label>
           <select value={f.role} onChange={(e) => set('role')(e.target.value)} style={input}>
             <option value="rep">Temsilci</option>
-            <option value="admin">Yönetici</option>
+            <option value="manager">Yönetici (sadece izler)</option>
           </select>
         </div>
         <div>
@@ -204,19 +204,22 @@ function CreateUser({ reps, takenBy, onCreated, adminEmail }) {
 
 function UserRow({ u, reps, takenBy, isSelf, selfEmail, onChanged, photoUrl }) {
   const [editing, setEditing] = useState(false);
-  const [f, setF] = useState({ name: u.name || '', role: u.role || 'rep', salesRepKey: u.salesRepKey || '' });
+  const role = normalizeRole(u.role);
+  const isOwnerRow = role === 'owner';
+  const [f, setF] = useState({ name: u.name || '', role, salesRepKey: u.salesRepKey || '' });
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(null);
   const repName = reps.find((r) => r.key === u.salesRepKey)?.name || u.salesRepKey;
   const active = u.active !== false;
 
   const save = async () => {
-    if (isSelf && f.role !== 'admin') { setMsg({ tone: 'error', text: 'Kendi yönetici yetkini kaldıramazsın; başka bir yönetici yapmalı.' }); return; }
+
     if (f.salesRepKey && takenBy[f.salesRepKey] && takenBy[f.salesRepKey] !== u.id) { setMsg({ tone: 'error', text: 'Bu temsilci adı başka bir hesaba bağlı.' }); return; }
     setBusy(true); setMsg(null);
     try {
       await updateDoc(doc(db, 'users', u.id), {
-        name: f.name.trim(), role: f.role, salesRepKey: f.salesRepKey || null,
+        name: f.name.trim(), salesRepKey: f.salesRepKey || null,
+        ...(isOwnerRow ? {} : { role: f.role }), // sahip rolü uygulamadan değiştirilemez
         ...(isSelf && !u.email && selfEmail ? { email: selfEmail } : {}),
       });
       setEditing(false);
@@ -256,7 +259,7 @@ function UserRow({ u, reps, takenBy, isSelf, selfEmail, onChanged, photoUrl }) {
           </div>
           <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>{u.email || (isSelf && selfEmail) || u.id}</div>
           <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>
-            <span style={{ fontWeight: 700, color: u.role === 'admin' ? C.red : C.text }}>{ROLES[u.role] || u.role || 'Rol yok'}</span>
+            <span style={{ fontWeight: 700, color: isOwnerRow ? C.red : C.text }}>{ROLE_LABELS[role]}</span>
             {' · '}{repName ? `Temsilci adı: ${repName}` : 'Temsilci adı bağlı değil'}
             {!active && <span style={{ color: C.red, fontWeight: 700 }}> · Pasif</span>}
           </div>
@@ -266,7 +269,7 @@ function UserRow({ u, reps, takenBy, isSelf, selfEmail, onChanged, photoUrl }) {
           <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
             <button style={linkBtn} disabled={busy} onClick={() => setEditing(true)}>Düzenle</button>
             {u.email && <button style={linkBtn} disabled={busy} onClick={resetMail}>Şifre e-postası gönder</button>}
-            {!isSelf && <button style={linkBtn} disabled={busy} onClick={toggleActive}>{active ? 'Pasif yap' : 'Aktif yap'}</button>}
+            {!isSelf && !isOwnerRow && <button style={linkBtn} disabled={busy} onClick={toggleActive}>{active ? 'Pasif yap' : 'Aktif yap'}</button>}
           </div>
         )}
       </div>
@@ -280,10 +283,14 @@ function UserRow({ u, reps, takenBy, isSelf, selfEmail, onChanged, photoUrl }) {
             </div>
             <div>
               <label style={label}>Rol</label>
-              <select value={f.role} onChange={(e) => setF({ ...f, role: e.target.value })} style={input}>
-                <option value="rep">Temsilci</option>
-                <option value="admin">Yönetici</option>
-              </select>
+              {isOwnerRow ? (
+                <div style={{ ...input, background: 'var(--surface-2)', color: 'var(--muted)' }}>Sahip (değiştirilemez)</div>
+              ) : (
+                <select value={f.role} onChange={(e) => setF({ ...f, role: e.target.value })} style={input}>
+                  <option value="rep">Temsilci</option>
+                  <option value="manager">Yönetici (sadece izler)</option>
+                </select>
+              )}
             </div>
             <div>
               <label style={label}>Temsilci adı</label>
@@ -292,7 +299,7 @@ function UserRow({ u, reps, takenBy, isSelf, selfEmail, onChanged, photoUrl }) {
           </div>
           <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
             <button style={btn(true, busy)} disabled={busy} onClick={save}>Kaydet</button>
-            <button style={btn(false, false)} onClick={() => { setEditing(false); setF({ name: u.name || '', role: u.role || 'rep', salesRepKey: u.salesRepKey || '' }); }}>Vazgeç</button>
+            <button style={btn(false, false)} onClick={() => { setEditing(false); setF({ name: u.name || '', role, salesRepKey: u.salesRepKey || '' }); }}>Vazgeç</button>
           </div>
         </div>
       )}
@@ -413,7 +420,7 @@ export default function UsersPage() {
 
   const sorted = useMemo(() => [...(users ?? [])].sort((a, b) =>
     (a.active === false) - (b.active === false) ||
-    (a.role === 'admin' ? 0 : 1) - (b.role === 'admin' ? 0 : 1) ||
+    (normalizeRole(a.role) === 'owner' ? 0 : 1) - (normalizeRole(b.role) === 'owner' ? 0 : 1) ||
     (a.name || a.email || '').localeCompare(b.name || b.email || '', 'tr')), [users]);
 
   const missingReps = reps.filter((r) => !takenBy[r.key]);

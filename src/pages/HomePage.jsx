@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { db } from '../firebase';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth, ROLE_LABELS } from '../contexts/AuthContext';
 import { getDealerIndex } from '../utils/dealerIndex';
 import { Avatar, fmtNum } from '../components/ui';
 import { useRepProfiles } from '../utils/repProfiles';
@@ -20,8 +20,7 @@ function Action({ to, title, desc, primary }) {
 }
 
 export default function HomePage() {
-  const { user, userRole, userProfile } = useAuth();
-  const isAdmin = userRole === 'admin';
+  const { user, userRole, userProfile, isOwner, canRegister } = useAuth();
   const myKey = userProfile?.salesRepKey;
   const [counts, setCounts] = useState(null);
   const profiles = useRepProfiles(db);
@@ -47,16 +46,17 @@ export default function HomePage() {
               ? myKey
                 ? `${fmtNum(counts.mine)} bayin var, ${fmtNum(counts.mineActive)} tanesi aktif.`
                 : `Sistemde ${fmtNum(counts.all)} bayi kayıtlı.`
-              : isAdmin ? 'Yönetici' : 'Temsilci'}
+              : ROLE_LABELS[userRole]}
           </div>
         </div>
       </div>
 
       <div className="stack">
-        <Action to="/registrations/new" primary title="+ Yeni saha kaydı" desc="Bayi ziyaretini fotoğraf ve konumla kaydet" />
+        {canRegister && <Action to="/registrations/new" primary title="+ Yeni saha kaydı" desc="Bayi ziyaretini fotoğraf ve konumla kaydet" />}
         <Action to="/dealers" title={myKey ? 'Bayilerim' : 'Bayiler'} desc="Bayi ara, devreye alımlarını ve geçmiş kayıtlarını gör" />
-        <Action to="/registrations" title={isAdmin ? 'Kayıtlar' : 'Kayıtlarım'} desc="Girilen kayıtlar ve kurulum bekleyen talepler" />
-        {isAdmin && <Action to="/admin" title="Yönetim" desc="Kullanıcılar, veri yükleme ve dashboard" />}
+        <Action to="/registrations" title={userRole === 'rep' ? 'Kayıtlarım' : 'Kayıtlar'} desc="Saha kayıtları ve kurulum bekleyen talepler" />
+        <Action to="/dashboard" title="Dashboard" desc="Ziyaretler, kurulumlar ve öncelikli bayiler" />
+        {isOwner && <Action to="/admin" title="Yönetim" desc="Kullanıcılar, veri yükleme ve temsilci fotoğrafları" />}
       </div>
     </div>
   );

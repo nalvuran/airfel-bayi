@@ -5,6 +5,14 @@ import { auth, db } from '../firebase';
 
 const AuthContext = createContext(null);
 
+// Roller: 'owner' (sahip; eski 'admin' değeri de sahip sayılır), 'manager' (yönetici, sadece izler), 'rep' (temsilci)
+export const ROLE_LABELS = { owner: 'Sahip', manager: 'Yönetici', rep: 'Temsilci' };
+export function normalizeRole(role) {
+  if (role === 'owner' || role === 'admin') return 'owner';
+  if (role === 'manager') return 'manager';
+  return 'rep';
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [userRole, setUserRole] = useState(null);
@@ -34,7 +42,7 @@ export function AuthProvider({ children }) {
           return;
         }
         setAuthError('');
-        setUserRole(profile.role);
+        setUserRole(normalizeRole(profile.role));
         setUserProfile(profile);
         setUser(firebaseUser);
       } catch {
@@ -49,7 +57,12 @@ export function AuthProvider({ children }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, userRole, userProfile, authError, loading }}>
+    <AuthContext.Provider value={{
+      user, userRole, userProfile, authError, loading,
+      isOwner: userRole === 'owner',
+      isManager: userRole === 'manager',
+      canRegister: userRole === 'owner' || userRole === 'rep',
+    }}>
       {!loading && children}
     </AuthContext.Provider>
   );

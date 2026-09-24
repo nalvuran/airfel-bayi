@@ -4,7 +4,7 @@ import { PageHeader } from '../components/ui';
 
 const items = [
   { to: '/dashboard', title: 'Dashboard', desc: 'Temsilci ve bölge bazında özet rakamlar' },
-  { to: '/admin/users', title: 'Kullanıcılar', desc: 'Temsilci hesaplarını aç, düzenle, pasif yap' },
+  { to: '/admin/users', title: 'Kullanıcılar', desc: 'Hesap aç, rol ver, pasif yap; temsilci fotoğrafları' },
   { to: '/admin/sync', title: 'Veri Yükle', desc: 'Customer Data Excel dosyasıyla bayi listesini güncelle' },
 ];
 

@@ -385,3 +385,16 @@
     .rc-grid { grid-template-columns: 1fr; }
   }
   
+  /* ==========================================================================
+     Kayıt düzenleme ve değişiklik geçmişi
+     ========================================================================== */
+  
+  .editor { margin-top: 16px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+  .editor-title { font-weight: 800; font-size: 15px; margin-bottom: 12px; }
+  .owner-box { margin-top: 14px; border: 1px dashed var(--border-strong); border-radius: 10px; padding: 10px 12px; }
+  .history { margin-top: 10px; border-left: 3px solid var(--border); padding-left: 12px; display: grid; gap: 12px; }
+  .history-item { font-size: 13.5px; }
+  .history-list { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; }
+  .history-photos { display: grid; grid-template-columns: repeat(2, minmax(0, 120px)); gap: 8px; margin-top: 6px; }
+  .reg-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+  

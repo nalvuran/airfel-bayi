@@ -25,10 +25,10 @@ const waitingInstall = (r) =>
 
 export default function RegistrationsPage() {
   const { user, userRole, userProfile } = useAuth();
-  const isAdmin = userRole === 'admin';
+  const isRep = userRole === 'rep';
   const myKey = userProfile?.salesRepKey || null;
 
-  const [scope, setScope] = useState(isAdmin ? 'all' : 'mine');
+  const [scope, setScope] = useState(isRep ? 'mine' : 'all');
   const [rows, setRows] = useState(null);
   const [names, setNames] = useState({});
   const [error, setError] = useState(null);
@@ -105,7 +105,7 @@ export default function RegistrationsPage() {
       />
 
       <div className="card mb-16">
-        {isAdmin && (
+        {userRole !== 'manager' && (
           <div className="row mb-12" style={{ gap: 8 }}>
             {[['all', 'Tüm kayıtlar'], ['mine', 'Sadece benimkiler']].map(([k, l]) => (
               <button key={k} className={`pill ${scope === k ? 'active' : ''}`} onClick={() => setScope(k)}>{l}</button>

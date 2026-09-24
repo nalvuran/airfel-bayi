@@ -16,9 +16,16 @@ function PrivateRoute({ children }) {
   return user ? children : <Navigate to="/login" />;
 }
 
+// Sadece sahip (Kullanıcılar, Veri Yükle, Yönetim menüsü)
 function AdminRoute({ children }) {
-  const { userRole } = useAuth();
-  return userRole === 'admin' ? children : <Navigate to="/" />;
+  const { isOwner } = useAuth();
+  return isOwner ? children : <Navigate to="/" />;
+}
+
+// Kayıt girebilenler: temsilci ve sahip
+function RegisterRoute({ children }) {
+  const { canRegister } = useAuth();
+  return canRegister ? children : <Navigate to="/registrations" />;
 }
 
 function AppRoutes() {
@@ -35,8 +42,8 @@ function AppRoutes() {
                 <Route path="/" element={<HomePage />} />
                 <Route path="/dealers" element={<DealersPage />} />
                 <Route path="/dealers/:id" element={<DealerDetailPage />} />
-                <Route path="/registrations/new" element={<NewRegistrationPage />} />
-                <Route path="/dashboard" element={<AdminRoute><div style={{ padding: '40px 8px', textAlign: 'center', color: '#7a7570' }}><h1 style={{ fontSize: 22, color: '#2b2b2b', marginBottom: 8 }}>Dashboard</h1>Yakında</div></AdminRoute>} />
+                <Route path="/registrations/new" element={<RegisterRoute><NewRegistrationPage /></RegisterRoute>} />
+                <Route path="/dashboard" element={<div className="page"><div className="card"><div className="empty"><div className="empty-title">Dashboard</div>Yakında</div></div></div>} />
                 <Route path="/registrations" element={<RegistrationsPage />} />
                 <Route path="/my-dealers" element={<Navigate to="/registrations" replace />} />
                 <Route path="/admin" element={<AdminRoute><AdminMenuPage /></AdminRoute>} />

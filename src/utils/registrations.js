@@ -3,7 +3,7 @@
 import { Bytes, collection, doc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { makeThumb } from './image';
 
-function addPhoto(batch, db, regId, slot, photo, uid) {
+export function addPhoto(batch, db, regId, slot, photo, uid) {
   const photoId = `${regId}_${slot}_${Date.now().toString(36)}`;
   batch.set(doc(db, 'photos', photoId), {
     data: Bytes.fromUint8Array(photo.bytes),
@@ -56,14 +56,4 @@ export async function createRegistration(db, { fields, photos, profile, user }) 
   });
   await batch.commit();
   return ref.id;
-}
-
-export async function addAfterPhotos(db, { regId, photos, user }) {
-  const batch = writeBatch(db);
-  const update = { afterPhotosAt: serverTimestamp() };
-  Object.entries(photos).forEach(([slot, p]) => {
-    if (p) update[`photoFiles.${slot}`] = addPhoto(batch, db, regId, slot, p, user.uid);
-  });
-  batch.update(doc(db, 'registrations', regId), update);
-  await batch.commit();
 }

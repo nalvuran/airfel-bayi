@@ -4,8 +4,7 @@ import { Link, useLocation, useParams } from 'react-router-dom';
 import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { addAfterPhotos } from '../utils/registrations';
-import PhotoInput from '../components/PhotoInput';
+import { EditRegistration, History, OwnerActions } from '../components/RegistrationEditor';
 import DevreyeTable from '../components/DevreyeTable';
 import { Photo, Lightbox, SLOT_LABEL } from '../components/Photos';
 import { Alert, Badge, Card, Info, PageHeader, Skeleton, StatusBadge } from '../components/ui';
@@ -24,58 +23,11 @@ const fmtDate = (v, withTime) => {
 };
 const yesNo = (v) => (v === true ? <Badge tone="success">Evet</Badge> : v === false ? <Badge>Hayır</Badge> : '-');
 
-/* ---------- Sonrası fotoğrafları ---------- */
-
-function AfterPhotos({ r, onSaved }) {
-  const { user } = useAuth();
-  const [open, setOpen] = useState(false);
-  const [photos, setPhotos] = useState({ exteriorAfter: null, interiorAfter: null });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const missing = ['exteriorAfter', 'interiorAfter'].filter((s) => !r.photoFiles?.[s] && !r.photos?.[s]);
-  if (!missing.length) return null;
-
-  const save = async () => {
-    if (!missing.some((s) => photos[s])) { setError('En az bir fotoğraf ekle.'); return; }
-    setSaving(true); setError('');
-    try {
-      const toSave = Object.fromEntries(missing.map((s) => [s, photos[s]]));
-      await addAfterPhotos(db, { regId: r.id, photos: toSave, user });
-      clearRegistrationsCache();
-      setOpen(false); setPhotos({ exteriorAfter: null, interiorAfter: null });
-      onSaved();
-    } catch (e) {
-      setError(e.code === 'permission-denied' ? 'Bu kayda fotoğraf ekleme iznin yok.' : `Kaydedilemedi: ${e.message}`);
-    } finally { setSaving(false); }
-  };
-
-  if (!open) {
-    return (
-      <button className="btn btn-secondary mt-16" style={{ whiteSpace: 'normal', textAlign: 'center', maxWidth: '100%' }} onClick={() => setOpen(true)}>
-        + Sonrası fotoğraf ekle (tabela / stant kurulumu)
-      </button>
-    );
-  }
-  return (
-    <div className="mt-16" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: 14 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
-        {missing.map((s) => (
-          <PhotoInput key={s} label={SLOT_LABEL[s]} value={photos[s]} disabled={saving}
-            onChange={(p) => setPhotos((x) => ({ ...x, [s]: p }))} />
-        ))}
-      </div>
-      {error && <Alert tone="danger" style={{ marginTop: 10 }}>{error}</Alert>}
-      <div className="row mt-12">
-        <button className="btn btn-primary" onClick={save} disabled={saving}>{saving ? 'Kaydediliyor…' : 'Fotoğrafları kaydet'}</button>
-        <button className="btn btn-secondary" onClick={() => { setOpen(false); setError(''); }} disabled={saving}>Vazgeç</button>
-      </div>
-    </div>
-  );
-}
-
 /* ---------- Saha kaydı ---------- */
 
-function Registration({ r, onOpen, canEdit, onChanged }) {
+function Registration({ r, onOpen, canEdit, isOwner, onChanged, onRemoved }) {
+  const [editing, setEditing] = useState(false);
+  const missingAfter = !r.photoFiles?.exteriorAfter && !r.photoFiles?.interiorAfter && !r.photos?.exteriorAfter && !r.photos?.interiorAfter;
   const loc = r.location ? `https://www.google.com/maps?q=${r.location.lat},${r.location.lng}` : r.mapsUrl;
   const slots = Object.keys(SLOT_LABEL).filter((s) => r.photos?.[s] || r.photoFiles?.[s]);
 
@@ -89,7 +41,11 @@ function Registration({ r, onOpen, canEdit, onChanged }) {
             {r.afterPhotosAt && ` · sonrası fotoğrafı ${fmtDate(r.afterPhotosAt)}`}
           </div>
         </div>
-        {r.needsReview && <Badge tone="warn">Kontrol gerekli</Badge>}
+        <div className="row" style={{ gap: 6 }}>
+          {r.editCount > 0 && <Badge>Düzenlendi · {fmtDate(r.editedAt)}</Badge>}
+          {r.attention && <Badge tone="warn">Kurulumdan sonra değiştirildi</Badge>}
+          {r.needsReview && <Badge tone="warn">Kontrol gerekli</Badge>}
+        </div>
       </div>
 
       <div className="info-grid mt-12">
@@ -112,7 +68,18 @@ function Registration({ r, onOpen, canEdit, onChanged }) {
           ))}
         </div>
       )}
-      {canEdit && <AfterPhotos r={r} onSaved={onChanged} />}
+      <History r={r} onOpenPhoto={(p) => onOpen({ ...p, label: `${p.label} · ${fmtDate(r.createdAt)}` })} />
+
+      {canEdit && !editing && (
+        <div className="reg-actions">
+          <button className="btn btn-secondary btn-sm" onClick={() => setEditing(true)}>Düzenle</button>
+          {missingAfter && (r.signRequest || r.standRequest) && (
+            <button className="btn btn-secondary btn-sm" onClick={() => setEditing(true)}>+ Kurulum fotoğrafı ekle</button>
+          )}
+        </div>
+      )}
+      {editing && <EditRegistration r={r} onCancel={() => setEditing(false)} onDone={() => { setEditing(false); clearRegistrationsCache(); onChanged(); }} />}
+      {isOwner && !editing && <OwnerActions r={r} onChanged={() => { clearRegistrationsCache(); onChanged(); }} onDeleted={(msg) => { clearRegistrationsCache(); onRemoved(msg); }} />}
     </div>
   );
 }
@@ -133,8 +100,9 @@ function DetailSkeleton() {
 
 export default function DealerDetailPage() {
   const { id } = useParams();
-  const { user, userRole, userProfile } = useAuth();
+  const { user, userRole, userProfile, isOwner, canRegister } = useAuth();
   const location = useLocation();
+  const [notice, setNotice] = useState('');
   const [justSaved] = useState(!!location.state?.saved);
   const [reload, setReload] = useState(0);
   const [dealer, setDealer] = useState(undefined);
@@ -157,8 +125,9 @@ export default function DealerDetailPage() {
     return () => { cancelled = true; };
   }, [id, reload]);
 
-  const canEdit = (r) => userRole === 'admin' || r.createdByUid === user?.uid ||
-    (!!userProfile?.salesRepKey && r.salesRepKey === userProfile.salesRepKey);
+  // Sahip her kaydı, temsilci kendi kayıtlarını düzenler; yönetici sadece izler
+  const canEdit = (r) => isOwner || (userRole === 'rep' && (r.createdByUid === user?.uid ||
+    (!!userProfile?.salesRepKey && r.salesRepKey === userProfile.salesRepKey)));
 
   const back = { to: '/dealers', label: 'Bayiler' };
   if (error) return <div className="page"><Link to="/dealers" className="back-link">← Bayiler</Link><Alert tone="danger">Bayi yüklenemedi: {error}</Alert></div>;
@@ -200,12 +169,14 @@ export default function DealerDetailPage() {
 
       <Card
         title={`Saha kayıtları${regs ? ` (${regs.length})` : ''}`}
-        actions={<Link to={`/registrations/new?dealer=${encodeURIComponent(id)}`} className="btn btn-primary btn-sm">+ Yeni kayıt ekle</Link>}
+        actions={canRegister ? <Link to={`/registrations/new?dealer=${encodeURIComponent(id)}`} className="btn btn-primary btn-sm">+ Yeni kayıt ekle</Link> : null}
       >
-        {justSaved && <Alert tone="success">✓ Kayıt kaydedildi.</Alert>}
+        {justSaved && !notice && <Alert tone="success">✓ Kayıt kaydedildi.</Alert>}
+        {notice && <Alert tone="success">{notice}</Alert>}
         {regs?.length === 0 && <p className="text-sm muted">Bu bayi için henüz saha kaydı yok.</p>}
         {regs?.map((r) => (
-          <Registration key={r.id} r={r} onOpen={setLightbox} canEdit={canEdit(r)} onChanged={() => setReload((x) => x + 1)} />
+          <Registration key={r.id} r={r} onOpen={setLightbox} canEdit={canEdit(r)} isOwner={isOwner}
+            onChanged={() => setReload((x) => x + 1)} onRemoved={(msg) => { setNotice(msg); setReload((x) => x + 1); }} />
         ))}
       </Card>
 

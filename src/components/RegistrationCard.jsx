@@ -76,8 +76,10 @@ export default function RegistrationCard({ r, dealer, repPhoto, onOpenPhoto }) {
           <YesNo label="Stant" value={r.standRequest} />
         </div>
 
-        {(waitingInstall(r) || hasInstallPhoto(r) || r.needsReview) && (
+        {(waitingInstall(r) || hasInstallPhoto(r) || r.needsReview || r.editCount > 0 || r.attention) && (
           <div className="row" style={{ gap: 6, marginTop: 10 }}>
+            {r.attention && <Badge tone="warn">Kurulumdan sonra değiştirildi</Badge>}
+            {r.editCount > 0 && <Badge>Düzenlendi</Badge>}
             {waitingInstall(r) && <Badge tone="warn">Kurulum bekliyor</Badge>}
             {hasInstallPhoto(r) && <Badge tone="success">Kurulum fotoğrafı var</Badge>}
             {r.needsReview && <Badge tone="danger">Kontrol gerekli</Badge>}

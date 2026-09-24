@@ -447,3 +447,12 @@
     .recent-strip { grid-auto-columns: 160px; }
   }
   
+  /* Bağlantı durumu göstergesi */
+  .sync-chip { font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 20px; white-space: nowrap; border: none; }
+  .sync-offline { background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--border-strong); }
+  .sync-pending { background: var(--amber-soft); color: var(--amber); }
+  .sync-error { background: var(--danger-soft); color: var(--danger); cursor: pointer; }
+  @media (max-width: 767px) {
+    .user-box .sync-chip { display: inline-block; }
+  }
+  

@@ -4,6 +4,7 @@
 import { Bytes, collection, deleteField, doc, getDocs, increment, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { addPhoto } from './registrations';
 import { makeThumb } from './image';
+import { commitOrQueue } from './offline';
 
 export const FIELD_LABELS = {
   contactName: 'Görüşülen kişi',
@@ -84,8 +85,8 @@ export async function saveRegistrationEdit(db, { r, changes = {}, photos = {}, u
 
   batch.set(hRef, { action: 'edit', at: serverTimestamp(), ...actor(user, profile), changes: hist, photos: photoHist, attention });
   batch.update(doc(db, 'registrations', r.id), update);
-  await batch.commit();
-  return hRef.id;
+  const { queued } = await commitOrQueue(batch.commit());
+  return { id: hRef.id, queued };
 }
 
 // Sahip: kaydı başka bayiye taşır (firma ünvanı ve distribütör yeni bayiden gelir)

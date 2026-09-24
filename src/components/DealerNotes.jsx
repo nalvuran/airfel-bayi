@@ -83,6 +83,7 @@ export default function DealerNotes({ dealerId }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [showAll, setShowAll] = useState(false);
+  const [info, setInfo] = useState('');
 
   useEffect(() => {
     loadNotes(db, dealerId).then(setNotes).catch((e) => setError(e.message));
@@ -90,7 +91,11 @@ export default function DealerNotes({ dealerId }) {
 
   const add = async (text) => {
     setBusy(true); setError('');
-    try { await addNote(db, dealerId, { text, user, profile: userProfile }); setReload((x) => x + 1); return true; }
+    try {
+      const { queued } = await addNote(db, dealerId, { text, user, profile: userProfile });
+      setInfo(queued ? 'Not telefonda saklandı; bağlantı gelince otomatik gönderilecek.' : '');
+      setReload((x) => x + 1); return true;
+    }
     catch (e) { setError(errMsg(e)); return false; } finally { setBusy(false); }
   };
 
@@ -100,6 +105,7 @@ export default function DealerNotes({ dealerId }) {
     <Card title={`Notlar${notes?.length ? ` (${notes.length})` : ''}`}>
       <NoteEditor placeholder="Bu bayiyle ilgili bir not yaz…" submitLabel="Not ekle" busy={busy} onSubmit={add} />
       {error && <Alert tone="danger" style={{ marginTop: 10 }}>{error}</Alert>}
+      {info && <Alert tone="success" style={{ marginTop: 10 }}>{info}</Alert>}
       <div className="mt-16">
         {!notes && !error && <Skeleton height={48} />}
         {notes?.length === 0 && <div className="text-sm muted">Henüz not yok.</div>}

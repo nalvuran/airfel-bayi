@@ -22,7 +22,7 @@ function writeMeta(m) {
   try { localStorage.setItem(META_KEY, JSON.stringify(m)); } catch { /* gizli sekme vb. */ }
 }
 function toRow(d) {
-  const data = d.data();
+  const data = d.data({ serverTimestamps: 'estimate' }); // telefonda bekleyen kayıtlar da tarihli görünsün
   return { id: d.id, ...data, date: toDate(data.createdAt) };
 }
 function finish(map, offline) {

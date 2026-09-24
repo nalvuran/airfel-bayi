@@ -12,3 +12,10 @@ createRoot(document.getElementById('root')).render(
     <App />
   </StrictMode>,
 )
+
+// Uygulamanın bağlantısız açılabilmesi için (sadece yayındaki sürümde; StackBlitz önizlemesinde çalışmaz)
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => { /* desteklenmiyorsa uygulama normal çalışır */ });
+  });
+}

@@ -2,6 +2,7 @@
 // Saha kaydı ve fotoğraflarını tek seferde (atomik) yazar: ya hepsi kaydedilir ya hiçbiri.
 import { Bytes, collection, doc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { makeThumb } from './image';
+import { commitOrQueue } from './offline';
 
 export function addPhoto(batch, db, regId, slot, photo, uid) {
   const photoId = `${regId}_${slot}_${Date.now().toString(36)}`;
@@ -55,6 +56,6 @@ export async function createRegistration(db, { fields, photos, profile, user }) 
     needsReview: false,
     reviewReasons: [],
   });
-  await batch.commit();
-  return ref.id;
+  const { queued } = await commitOrQueue(batch.commit());
+  return { id: ref.id, queued };
 }

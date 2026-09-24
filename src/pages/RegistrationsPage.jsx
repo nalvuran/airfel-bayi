@@ -1,7 +1,7 @@
 // src/pages/RegistrationsPage.jsx
 // Temsilci: kendi kayıtları ("Kayıtlarım"). Yönetici: tüm kayıtlar ("Kayıtlar").
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { fold, getDealerIndex } from '../utils/dealerIndex';
@@ -30,6 +30,8 @@ export default function RegistrationsPage() {
   const [limit, setLimit] = useState(PAGE);
   const [showFilters, setShowFilters] = useState(false);
   const [photo, setPhoto] = useState(null);
+  const location = useLocation();
+  const [queuedNotice] = useState(!!location.state?.queued);
   const profiles = useRepProfiles(db);
 
   useEffect(() => {
@@ -126,6 +128,11 @@ export default function RegistrationsPage() {
       </div>
 
       {error && <Alert tone="danger">Kayıtlar yüklenemedi: {error}</Alert>}
+      {queuedNotice && (
+        <Alert tone="success" style={{ marginBottom: 14 }}>
+          ✓ Kayıt fotoğraflarıyla birlikte telefonda saklandı. Bağlantı gelince otomatik olarak gönderilecek; uygulamayı kapatsan da kaybolmaz.
+        </Alert>
+      )}
       {offline && <Alert tone="warn" style={{ marginBottom: 14 }}>İnternet bağlantısı yok; telefonda kayıtlı son liste gösteriliyor.</Alert>}
       {!rows && !error && (
         <div className="rc-grid" aria-busy="true">

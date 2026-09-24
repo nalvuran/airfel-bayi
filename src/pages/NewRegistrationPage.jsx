@@ -66,7 +66,7 @@ export default function NewRegistrationPage() {
     if (e.length) { window.scrollTo({ top: document.body.scrollHeight }); return; }
     setSaving(true);
     try {
-      await createRegistration(db, {
+      const { queued } = await createRegistration(db, {
         user, profile: userProfile, photos,
         fields: {
           dealerId: dealer.i,
@@ -86,7 +86,9 @@ export default function NewRegistrationPage() {
         },
       });
       clearRegistrationsCache();
-      navigate(`/dealers/${encodeURIComponent(dealer.i)}`, { state: { saved: true } });
+      // Bağlantı yoksa bayi sayfası açılamayabilir; kayıt telefondaki listede görünür
+      if (queued) navigate('/registrations', { state: { queued: true } });
+      else navigate(`/dealers/${encodeURIComponent(dealer.i)}`, { state: { saved: true } });
     } catch (err) {
       setSaveError(err.code === 'permission-denied'
         ? 'Kaydetme izni yok. Çıkış yapıp tekrar giriş yap; sorun sürerse yöneticine haber ver.'

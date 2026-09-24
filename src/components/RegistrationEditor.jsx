@@ -62,9 +62,9 @@ export function EditRegistration({ r, onDone, onCancel }) {
 
     setSaving(true); setError('');
     try {
-      await saveRegistrationEdit(db, { r, changes, photos: chosen, user, profile: userProfile });
+      const res = await saveRegistrationEdit(db, { r, changes, photos: chosen, user, profile: userProfile });
       if (chosen.exterior || chosen.interior) clearThumbCache(r.id);
-      onDone();
+      onDone(res?.queued);
     } catch (e) { setError(errMsg(e)); } finally { setSaving(false); }
   };
 

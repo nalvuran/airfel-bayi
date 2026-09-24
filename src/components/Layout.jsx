@@ -3,6 +3,7 @@ import { signOut } from 'firebase/auth';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { auth } from '../firebase';
 import { useAuth, ROLE_LABELS } from '../contexts/AuthContext';
+import { clearSyncError, useOnline, useSyncState } from '../utils/offline';
 
 /* ---------- Simgeler ---------- */
 const Icon = ({ children }) => (
@@ -17,6 +18,22 @@ const ListIcon = () => <Icon><rect x="5" y="3" width="14" height="18" rx="2" /><
 const ChartIcon = () => <Icon><path d="M4 20V10" /><path d="M10 20V4" /><path d="M16 20v-7" /><path d="M22 20H2" /></Icon>;
 const GridIcon = () => <Icon><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></Icon>;
 const LogoutIcon = () => <Icon><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" /><path d="M10 17l-5-5 5-5" /><path d="M5 12h11" /></Icon>;
+
+// Bağlantı ve gönderim durumu: sadece bir sorun ya da bekleyen iş varsa görünür
+function SyncStatus() {
+  const online = useOnline();
+  const { pending, error } = useSyncState();
+  if (error) {
+    return (
+      <button className="sync-chip sync-error" onClick={() => { window.alert(error); clearSyncError(); }} title={error}>
+        ⚠ Gönderilemeyen kayıt
+      </button>
+    );
+  }
+  if (!online) return <span className="sync-chip sync-offline" title="İnternet bağlantısı yok. Girdiğin kayıtlar telefonda saklanır.">Çevrimdışı</span>;
+  if (pending) return <span className="sync-chip sync-pending" title="Telefonda bekleyen kayıtlar gönderiliyor">Gönderiliyor…</span>;
+  return null;
+}
 
 export default function Layout({ children }) {
   const { user, userRole, userProfile, isOwner, canRegister } = useAuth();
@@ -64,6 +81,7 @@ export default function Layout({ children }) {
             ))}
           </nav>
           <div className="user-box">
+            <SyncStatus />
             <span className="user-name">{userProfile?.name || user?.email}</span>
             <span className="role-chip">{ROLE_LABELS[userRole] || 'Temsilci'}</span>
             <button className="logout-btn" onClick={handleLogout} aria-label="Çıkış yap">

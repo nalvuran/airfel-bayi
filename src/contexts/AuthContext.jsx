@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, getDocFromCache } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 
 const AuthContext = createContext(null);
@@ -28,7 +28,9 @@ export function AuthProvider({ children }) {
         return;
       }
       try {
-        const snap = await getDoc(doc(db, 'users', firebaseUser.uid));
+        const ref = doc(db, 'users', firebaseUser.uid);
+        // Bağlantı yoksa telefonda kayıtlı profille devam et
+        const snap = await getDoc(ref).catch(() => getDocFromCache(ref));
         const profile = snap.exists() ? snap.data() : null;
         // Sadece yöneticinin açtığı ve aktif olan hesaplar uygulamaya girebilir
         if (!profile) {
@@ -46,8 +48,9 @@ export function AuthProvider({ children }) {
         setUserProfile(profile);
         setUser(firebaseUser);
       } catch {
-        setAuthError('Hesap bilgileri okunamadı. İnternet bağlantınızı kontrol edip tekrar deneyin.');
-        await signOut(auth);
+        // Profil ne sunucudan ne telefondan okunabildi: oturumu kapatmadan hata göster, bağlantı gelince tekrar denenir
+        setAuthError('Hesap bilgileri okunamadı. İnternet bağlantını kontrol edip uygulamayı yeniden aç.');
+        setUser(null);
         return;
       } finally {
         setLoading(false);

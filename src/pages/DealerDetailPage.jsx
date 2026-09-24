@@ -79,7 +79,7 @@ function Registration({ r, onOpen, canEdit, isOwner, onChanged, onRemoved }) {
           )}
         </div>
       )}
-      {editing && <EditRegistration r={r} onCancel={() => setEditing(false)} onDone={() => { setEditing(false); clearRegistrationsCache(); onChanged(); }} />}
+      {editing && <EditRegistration r={r} onCancel={() => setEditing(false)} onDone={(queued) => { setEditing(false); clearRegistrationsCache(); onChanged(queued); }} />}
       {isOwner && !editing && <OwnerActions r={r} onChanged={() => { clearRegistrationsCache(); onChanged(); }} onDeleted={(msg) => { clearRegistrationsCache(); onRemoved(msg); }} />}
     </div>
   );
@@ -179,7 +179,8 @@ export default function DealerDetailPage() {
         {regs?.length === 0 && <p className="text-sm muted">Bu bayi için henüz saha kaydı yok.</p>}
         {regs?.map((r) => (
           <Registration key={r.id} r={r} onOpen={setLightbox} canEdit={canEdit(r)} isOwner={isOwner}
-            onChanged={() => setReload((x) => x + 1)} onRemoved={(msg) => { setNotice(msg); setReload((x) => x + 1); }} />
+            onChanged={(queued) => { if (queued === true) setNotice('Değişiklik telefonda saklandı; bağlantı gelince otomatik gönderilecek.'); setReload((x) => x + 1); }}
+            onRemoved={(msg) => { setNotice(msg); setReload((x) => x + 1); }} />
         ))}
       </Card>
 

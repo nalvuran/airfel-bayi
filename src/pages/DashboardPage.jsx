@@ -1,0 +1,266 @@
+// src/pages/DashboardPage.jsx
+import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { db } from '../firebase';
+import { useAuth } from '../contexts/AuthContext';
+import { getDealerIndex } from '../utils/dealerIndex';
+import { getRegistrations, waitingInstall } from '../utils/registrationStore';
+import { titleCase, useRepProfiles } from '../utils/repProfiles';
+import { useThumbs } from '../utils/thumbs';
+import VisitMap from '../components/VisitMap';
+import { Alert, Avatar, Badge, Card, Empty, PageHeader, Skeleton, fmtNum } from '../components/ui';
+
+const MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+const fmtDate = (d) => (d ? d.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit' }) : '');
+const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
+
+/* ---------- Rakam kutusu ---------- */
+
+function Tile({ label, value, sub, tone }) {
+  return (
+    <div className={`stat ${tone ? `stat-${tone}` : ''}`}>
+      <div className="stat-value">{value}</div>
+      <div className="stat-label">{label}</div>
+      {sub && <div className="text-xs muted" style={{ marginTop: 6, fontWeight: 600 }}>{sub}</div>}
+    </div>
+  );
+}
+
+function Trend({ now, before }) {
+  if (!before && !now) return <span>geçen ayın aynı dönemi: 0</span>;
+  const diff = now - before;
+  const color = diff > 0 ? 'var(--green)' : diff < 0 ? 'var(--danger)' : 'var(--muted)';
+  const arrow = diff > 0 ? '▲' : diff < 0 ? '▼' : '•';
+  return (
+    <span>
+      geçen ayın aynı dönemi: {before}{' '}
+      <span style={{ color, fontWeight: 800 }}>{arrow} {diff > 0 ? '+' : ''}{diff}</span>
+    </span>
+  );
+}
+
+/* ---------- Son ziyaretler şeridi ---------- */
+
+function RecentCard({ r, name, repPhoto }) {
+  const [ref, thumbs] = useThumbs(db, r.id, !!r.thumbs);
+  const url = thumbs && thumbs !== 'none' ? thumbs.exterior || thumbs.interior : null;
+  return (
+    <Link ref={ref} to={r.dealerId ? `/dealers/${encodeURIComponent(r.dealerId)}` : '#'} className="recent-card">
+      <div className="recent-photo">
+        {url ? <img src={url} alt="" loading="lazy" /> : r.thumbs && thumbs === null ? <span className="skeleton" style={{ position: 'absolute', inset: 0, borderRadius: 0 }} /> : null}
+      </div>
+      <div className="recent-body">
+        <div className="recent-title">{name}</div>
+        <div className="row" style={{ gap: 6, marginTop: 6, flexWrap: 'nowrap' }}>
+          <Avatar name={r.salesRep} src={repPhoto} size={20} />
+          <span className="text-xs" style={{ fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.salesRep}</span>
+        </div>
+        <div className="text-xs muted num" style={{ marginTop: 4, fontWeight: 600 }}>{fmtDate(r.date)}</div>
+      </div>
+    </Link>
+  );
+}
+
+/* ---------- Temsilci kartı ---------- */
+
+function RepCard({ rep }) {
+  const cover = pct(rep.visited, rep.active);
+  return (
+    <div className="rep-card">
+      <div className="row" style={{ flexWrap: 'nowrap', gap: 12 }}>
+        <Avatar name={rep.name} src={rep.photo} size={46} />
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontWeight: 800, fontSize: 15 }}>{rep.name}</div>
+          <div className="text-xs muted" style={{ fontWeight: 600 }}>{fmtNum(rep.active)} aktif bayi</div>
+        </div>
+        <div style={{ marginLeft: 'auto', textAlign: 'right', flexShrink: 0 }}>
+          <div className="num" style={{ fontSize: 22, fontWeight: 800, lineHeight: 1 }}>{rep.month}</div>
+          <div className="text-xs muted" style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>bu ay</div>
+        </div>
+      </div>
+      <div className="progress mt-12" aria-label={`Bayilerin yüzde ${cover}'i ziyaret edildi`}>
+        <span style={{ width: `${Math.min(100, cover)}%` }} />
+      </div>
+      <div className="row mt-8" style={{ justifyContent: 'space-between' }}>
+        <span className="text-xs" style={{ fontWeight: 700 }}>%{cover} ziyaret edildi <span className="muted">· {fmtNum(rep.visited)}/{fmtNum(rep.active)}</span></span>
+        {rep.pending > 0 && <Badge tone="warn">{rep.pending} kurulum bekliyor</Badge>}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Sayfa ---------- */
+
+export default function DashboardPage() {
+  const { user, userProfile } = useAuth();
+  const myKey = userProfile?.salesRepKey || null;
+  const profiles = useRepProfiles(db);
+  const [regs, setRegs] = useState(null);
+  const [offline, setOffline] = useState(false);
+  const [index, setIndex] = useState(null);
+  const [error, setError] = useState(null);
+  const [scope, setScope] = useState('team');
+  const [allReps, setAllReps] = useState(false);
+
+  useEffect(() => {
+    getRegistrations(db).then((r) => { setRegs(r.list); setOffline(r.offline); }).catch((e) => setError(e.message));
+    getDealerIndex(db).then(setIndex).catch((e) => setError(e.message));
+  }, []);
+
+  const data = useMemo(() => {
+    if (!regs || !index) return null;
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const prevSameEnd = new Date(prevStart.getTime() + (now - monthStart));
+    const mine = scope === 'mine';
+    const isMine = (r) => r.createdByUid === user.uid || (myKey && r.salesRepKey === myKey);
+
+    const dealers = new Map(index.entries.map((e) => [e.i, e]));
+    const scopedRegs = mine ? regs.filter(isMine) : regs;
+    const scopedDealers = mine ? index.entries.filter((e) => e.k === myKey) : index.entries;
+    const visited = new Set(regs.map((r) => r.dealerId).filter(Boolean)); // herhangi biri ziyaret ettiyse
+    const active = scopedDealers.filter((e) => e.s === 'ACTIVE');
+
+    const month = scopedRegs.filter((r) => r.date && r.date >= monthStart).length;
+    const prevSame = scopedRegs.filter((r) => r.date && r.date >= prevStart && r.date < prevSameEnd).length;
+    const pending = scopedRegs.filter(waitingInstall).length;
+    const activeVisited = active.filter((e) => visited.has(e.i)).length;
+
+    // Haritada her bayinin en son ziyareti
+    const latestByDealer = new Map();
+    scopedRegs.forEach((r) => { if (r.location && r.dealerId && !latestByDealer.has(r.dealerId)) latestByDealer.set(r.dealerId, r); });
+    const recentLimit = new Date(now.getTime() - 30 * 86400000);
+    const points = [...latestByDealer.values()].map((r) => ({
+      lat: r.location.lat, lng: r.location.lng, dealerId: r.dealerId,
+      name: dealers.get(r.dealerId)?.n || r.dealerName || r.companyTitle, rep: r.salesRep, date: r.date,
+      recent: r.date && r.date >= recentLimit,
+    }));
+
+    // Temsilciler
+    const repKeys = [...new Set(index.entries.map((e) => e.k).filter(Boolean))];
+    const reps = repKeys.map((k) => {
+      const own = index.entries.filter((e) => e.k === k && e.s === 'ACTIVE');
+      const rr = regs.filter((r) => r.salesRepKey === k);
+      return {
+        key: k,
+        name: profiles[k]?.name || titleCase(k),
+        photo: profiles[k]?.url,
+        active: own.length,
+        visited: own.filter((e) => visited.has(e.i)).length,
+        month: rr.filter((r) => r.date && r.date >= monthStart).length,
+        pending: rr.filter(waitingInstall).length,
+      };
+    }).filter((r) => r.active > 0 || r.month > 0)
+      .sort((a, b) => b.month - a.month || pct(b.visited, b.active) - pct(a.visited, a.active));
+
+    // Hiç ziyaret edilmemiş, devreye alımı yüksek aktif bayiler
+    const priority = active.filter((e) => !visited.has(e.i))
+      .sort((a, b) => b.q - a.q || ((b.v?.[2] ?? 0) + (b.v?.[3] ?? 0)) - ((a.v?.[2] ?? 0) + (a.v?.[3] ?? 0)))
+      .slice(0, 10);
+
+    return {
+      month, prevSame, pending, activeVisited, activeTotal: active.length, points, reps, priority,
+      recent: scopedRegs.slice(0, 12), total: scopedRegs.length, dealers,
+      attention: regs.filter((r) => r.attention),
+      monthName: `${MONTHS[now.getMonth()]} ${now.getFullYear()}`,
+    };
+  }, [regs, index, scope, myKey, user.uid, profiles]);
+
+  if (error) return <div className="page"><PageHeader title="Dashboard" /><Alert tone="danger">Veriler yüklenemedi: {error}</Alert></div>;
+
+  return (
+    <div className="page" style={{ maxWidth: 1240 }}>
+      <PageHeader
+        title="Dashboard"
+        subtitle={data ? data.monthName : 'Yükleniyor…'}
+        actions={myKey ? (
+          <div className="row" style={{ gap: 8 }}>
+            <button className={`pill ${scope === 'team' ? 'active' : ''}`} onClick={() => setScope('team')}>Tüm ekip</button>
+            <button className={`pill ${scope === 'mine' ? 'active' : ''}`} onClick={() => setScope('mine')}>Benim</button>
+          </div>
+        ) : null}
+      />
+
+      {offline && <Alert tone="warn" style={{ marginBottom: 14 }}>İnternet bağlantısı yok; telefonda kayıtlı son veriler gösteriliyor.</Alert>}
+
+      {!data ? (
+        <div className="stat-grid">{Array.from({ length: 4 }, (_, i) => <div key={i} className="stat"><Skeleton width="50%" height={26} /><Skeleton width="70%" height={12} style={{ marginTop: 8 }} /></div>)}</div>
+      ) : (
+        <>
+          <div className="stat-grid">
+            <Tile label="Bu ay ziyaret" value={fmtNum(data.month)} sub={<Trend now={data.month} before={data.prevSame} />} />
+            <Tile label="Kurulum bekleyen" value={fmtNum(data.pending)} tone={data.pending ? 'warn' : undefined} sub="tabela / stant talebi" />
+            <Tile label="Ziyaret edilen aktif bayi" value={`%${pct(data.activeVisited, data.activeTotal)}`} sub={`${fmtNum(data.activeVisited)} / ${fmtNum(data.activeTotal)} bayi`} />
+            <Tile label="Toplam saha kaydı" value={fmtNum(data.total)} sub={scope === 'mine' ? 'senin kayıtların' : 'tüm ekip'} />
+          </div>
+
+          {data.attention.length > 0 && (
+            <Card title="Dikkat gerektiren değişiklikler" desc="Kurulum fotoğrafı eklendikten sonra tabela veya stant talebi değiştirilen kayıtlar." className="mt-16">
+              {data.attention.map((r) => (
+                <Link key={r.id} to={`/dealers/${encodeURIComponent(r.dealerId)}`} className="list-row" style={{ padding: '10px 0' }}>
+                  <div className="list-row-title" style={{ fontSize: 14 }}>{data.dealers.get(r.dealerId)?.n || r.dealerName}</div>
+                  <div className="list-row-meta">{r.editedByName} · {r.editedAt?.toDate?.().toLocaleDateString('tr-TR')}</div>
+                </Link>
+              ))}
+            </Card>
+          )}
+
+          <section className="mt-16">
+            <div className="row" style={{ justifyContent: 'space-between', marginBottom: 10 }}>
+              <h2 className="card-title">Son ziyaretler</h2>
+              <Link to="/registrations" className="btn-link text-sm">Tümünü gör</Link>
+            </div>
+            {data.recent.length === 0 ? <div className="card"><Empty title="Henüz ziyaret yok" /></div> : (
+              <div className="recent-strip">
+                {data.recent.map((r) => (
+                  <RecentCard key={r.id} r={r} name={data.dealers.get(r.dealerId)?.n || r.dealerName || r.companyTitle} repPhoto={profiles[r.salesRepKey]?.url} />
+                ))}
+              </div>
+            )}
+          </section>
+
+          <Card title="Ziyaret haritası" desc={`${fmtNum(data.points.length)} bayi · kırmızı: son 30 gün, gri: daha eski. Konumu olmayan kayıtlar haritada görünmez.`} className="mt-16">
+            <VisitMap points={data.points} />
+          </Card>
+
+          {scope === 'team' && data.reps.length > 0 && (
+            <section className="mt-16">
+              <h2 className="card-title" style={{ marginBottom: 10 }}>Temsilciler</h2>
+              <div className="rep-grid">
+                {(allReps ? data.reps : data.reps.slice(0, 6)).map((r) => <RepCard key={r.key} rep={r} />)}
+              </div>
+              {data.reps.length > 6 && (
+                <button className="btn btn-secondary btn-block mt-12" onClick={() => setAllReps((x) => !x)}>
+                  {allReps ? 'Daha az göster' : `Tüm temsilciler (${data.reps.length})`}
+                </button>
+              )}
+            </section>
+          )}
+
+          <Card title="Öncelikli bayiler" desc="FY26 devreye alımı en yüksek olup henüz hiç ziyaret edilmemiş aktif bayiler." className="mt-16" flush>
+            {data.priority.length === 0 ? <Empty>Tüm aktif bayiler en az bir kez ziyaret edilmiş.</Empty> : data.priority.map((e, i) => (
+              <Link key={e.i} to={`/dealers/${encodeURIComponent(e.i)}`} className="list-row">
+                <div className="row" style={{ flexWrap: 'nowrap', gap: 12 }}>
+                  <span className="rank">{i + 1}</span>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div className="list-row-title">{e.n}</div>
+                    <div className="list-row-meta">{[e.d, e.c].filter(Boolean).join(', ')} · {e.r}</div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div className="num" style={{ fontWeight: 800 }}>{fmtNum(e.q)} <span className="text-xs muted">FY26</span></div>
+                    {e.v && (
+                      <div className="text-xs num" style={{ fontWeight: 700 }}>
+                        <span style={{ color: 'var(--kombi)' }}>{fmtNum(e.v[4])} kombi</span> · <span style={{ color: 'var(--klima)' }}>{fmtNum(e.v[5])} klima</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </Card>
+        </>
+      )}
+    </div>
+  );
+}

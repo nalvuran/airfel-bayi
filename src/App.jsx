@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Login from './pages/Login';
@@ -10,6 +11,9 @@ import NewRegistrationPage from './pages/NewRegistrationPage';
 import RegistrationsPage from './pages/RegistrationsPage';
 import HomePage from './pages/HomePage';
 import AdminMenuPage from './pages/AdminMenuPage';
+
+// Dashboard harita kütüphanesini içerdiği için sadece açıldığında yüklenir
+const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 
 function PrivateRoute({ children }) {
   const { user } = useAuth();
@@ -43,7 +47,7 @@ function AppRoutes() {
                 <Route path="/dealers" element={<DealersPage />} />
                 <Route path="/dealers/:id" element={<DealerDetailPage />} />
                 <Route path="/registrations/new" element={<RegisterRoute><NewRegistrationPage /></RegisterRoute>} />
-                <Route path="/dashboard" element={<div className="page"><div className="card"><div className="empty"><div className="empty-title">Dashboard</div>Yakında</div></div></div>} />
+                <Route path="/dashboard" element={<Suspense fallback={<div className="page"><div className="page-subtitle">Dashboard yükleniyor…</div></div>}><DashboardPage /></Suspense>} />
                 <Route path="/registrations" element={<RegistrationsPage />} />
                 <Route path="/my-dealers" element={<Navigate to="/registrations" replace />} />
                 <Route path="/admin" element={<AdminRoute><AdminMenuPage /></AdminRoute>} />

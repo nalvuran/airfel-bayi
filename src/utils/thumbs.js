@@ -66,7 +66,7 @@ export async function buildMissingThumbs(db, { uid, onProgress }) {
       }
       const batch = writeBatch(db);
       batch.set(doc(db, 'thumbs', d.id), data);
-      batch.update(doc(db, 'registrations', d.id), { thumbs: true });
+      batch.update(doc(db, 'registrations', d.id), { thumbs: true, syncAt: serverTimestamp() });
       await batch.commit();
       done++;
     } catch (e) {

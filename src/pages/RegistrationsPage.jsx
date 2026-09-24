@@ -2,7 +2,6 @@
 // Temsilci: kendi kayıtları ("Kayıtlarım"). Yönetici: tüm kayıtlar ("Kayıtlar").
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { fold, getDealerIndex } from '../utils/dealerIndex';
@@ -10,26 +9,17 @@ import { Alert, Empty, PageHeader, Skeleton } from '../components/ui';
 import RegistrationCard from '../components/RegistrationCard';
 import { PhotoLightbox } from '../components/Photos';
 import { useRepProfiles } from '../utils/repProfiles';
+import { getRegistrations, invalidateRegistrations, waitingInstall } from '../utils/registrationStore';
 
 const PAGE = 24;
-const toDate = (v) => (v?.toDate ? v.toDate() : v instanceof Date ? v : null);
-
-// Oturum boyunca bellekte tut; yeni kayıt girilince sayfa açılışında yenilenir
-let cache = { key: null, rows: null, at: 0 };
-const CACHE_MS = 60 * 1000;
-
-// Talep edilmiş ama kurulum sonrası fotoğrafı olmayan kayıtlar
-const waitingInstall = (r) =>
-  (r.signRequest === true || r.standRequest === true) &&
-  !r.photoFiles?.exteriorAfter && !r.photoFiles?.interiorAfter && !r.photos?.exteriorAfter && !r.photos?.interiorAfter;
-
 export default function RegistrationsPage() {
   const { user, userRole, userProfile } = useAuth();
   const isRep = userRole === 'rep';
   const myKey = userProfile?.salesRepKey || null;
 
   const [scope, setScope] = useState(isRep ? 'mine' : 'all');
-  const [rows, setRows] = useState(null);
+  const [all, setAll] = useState(null);
+  const [offline, setOffline] = useState(false);
   const [names, setNames] = useState({});
   const [error, setError] = useState(null);
 
@@ -43,22 +33,17 @@ export default function RegistrationsPage() {
   const profiles = useRepProfiles(db);
 
   useEffect(() => {
-    const key = `${scope}:${user.uid}`;
-    if (cache.key === key && cache.rows && Date.now() - cache.at < CACHE_MS) { setRows(cache.rows); return; }
-    setRows(null); setError(null);
-    const coll = collection(db, 'registrations');
-    const qy = scope === 'all' ? coll
-      : myKey ? query(coll, where('salesRepKey', '==', myKey))
-        : query(coll, where('createdByUid', '==', user.uid));
-    getDocs(qy)
-      .then((snap) => {
-        const list = snap.docs.map((d) => ({ id: d.id, ...d.data(), date: toDate(d.data().createdAt) }))
-          .sort((a, b) => (b.date?.getTime() ?? 0) - (a.date?.getTime() ?? 0));
-        cache = { key, rows: list, at: Date.now() };
-        setRows(list);
-      })
+    getRegistrations(db)
+      .then((res) => { setAll(res.list); setOffline(res.offline); })
       .catch((e) => setError(e.message));
-  }, [scope, myKey, user.uid]);
+  }, []);
+
+  // "Benimkiler": kaydı ben girdim ya da kayıt benim temsilci adıma
+  const rows = useMemo(() => {
+    if (!all) return null;
+    if (scope === 'all') return all;
+    return all.filter((r) => r.createdByUid === user.uid || (myKey && r.salesRepKey === myKey));
+  }, [all, scope, myKey, user.uid]);
 
   useEffect(() => {
     getDealerIndex(db)
@@ -141,6 +126,7 @@ export default function RegistrationsPage() {
       </div>
 
       {error && <Alert tone="danger">Kayıtlar yüklenemedi: {error}</Alert>}
+      {offline && <Alert tone="warn" style={{ marginBottom: 14 }}>İnternet bağlantısı yok; telefonda kayıtlı son liste gösteriliyor.</Alert>}
       {!rows && !error && (
         <div className="rc-grid" aria-busy="true">
           {Array.from({ length: 6 }, (_, i) => (
@@ -178,4 +164,4 @@ export default function RegistrationsPage() {
   );
 }
 
-export function clearRegistrationsCache() { cache = { key: null, rows: null, at: 0 }; }
+export function clearRegistrationsCache() { invalidateRegistrations(); }

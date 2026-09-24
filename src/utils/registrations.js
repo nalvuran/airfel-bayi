@@ -42,6 +42,7 @@ export async function createRegistration(db, { fields, photos, profile, user }) 
   batch.set(ref, {
     ...fields,
     thumbs: hasThumbs,
+    syncAt: serverTimestamp(),
     photos: {},
     photoFiles,
     photoStorage: 'firestore',

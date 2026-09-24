@@ -32,6 +32,7 @@ function startEdit(db, r, user, profile) {
     editedByName: profile?.name || user.email,
     editCount: increment(1),
     lastHistoryId: hRef.id,
+    syncAt: serverTimestamp(),
   };
   return { batch, hRef, meta };
 }

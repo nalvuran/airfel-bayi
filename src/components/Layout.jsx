@@ -54,6 +54,7 @@ export default function Layout({ children }) {
     ...(isOwner ? [
       { label: 'Kullanıcılar', to: '/admin/users' },
       { label: 'Veri Yükle', to: '/admin/sync' },
+      { label: 'Yedek', to: '/admin/backup' },
     ] : []),
   ];
 

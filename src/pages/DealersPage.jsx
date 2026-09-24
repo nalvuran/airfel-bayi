@@ -5,6 +5,8 @@ import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { getDealerIndex, getCachedDealerIndex, fold } from '../utils/dealerIndex';
 import { Alert, Empty, PageHeader, SkeletonRows, StatusBadge, fmtNum } from '../components/ui';
+import { exportDealers } from '../utils/exportExcel';
+import { getRegistrations } from '../utils/registrationStore';
 
 const PAGE = 100;
 const trSort = (a, b) => a.localeCompare(b, 'tr');
@@ -25,6 +27,15 @@ export default function DealersPage() {
   const [sort, setSort] = useState('sales');
   const [limit, setLimit] = useState(PAGE);
   const [showFilters, setShowFilters] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  const onExport = async () => {
+    setExporting(true);
+    try {
+      const { list } = await getRegistrations(db);
+      await exportDealers(filtered, list);
+    } catch (e) { window.alert(`Excel hazırlanamadı: ${e.message}`); } finally { setExporting(false); }
+  };
 
   useEffect(() => {
     getDealerIndex(db).then(setData).catch((e) => setError(e.message));
@@ -74,6 +85,11 @@ export default function DealersPage() {
         subtitle={data
           ? `${fmtNum(filtered.length)} / ${fmtNum(data.entries.length)} bayi${data.updatedAt ? ` · liste ${data.updatedAt.toLocaleDateString('tr-TR')} tarihli` : ''}`
           : 'Yükleniyor…'}
+        actions={data && filtered.length > 0 ? (
+          <button className="btn btn-secondary btn-sm" onClick={onExport} disabled={exporting}>
+            {exporting ? 'Hazırlanıyor…' : `Excel'e aktar (${fmtNum(filtered.length)})`}
+          </button>
+        ) : null}
       />
 
       <div className="card mb-16">

@@ -1,7 +1,7 @@
 // src/pages/RegistrationsPage.jsx
 // Temsilci: kendi kayıtları ("Kayıtlarım"). Yönetici: tüm kayıtlar ("Kayıtlar").
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { fold, getDealerIndex } from '../utils/dealerIndex';
@@ -9,15 +9,17 @@ import { Alert, Empty, PageHeader, Skeleton } from '../components/ui';
 import RegistrationCard from '../components/RegistrationCard';
 import { PhotoLightbox } from '../components/Photos';
 import { useRepProfiles } from '../utils/repProfiles';
-import { getRegistrations, invalidateRegistrations, waitingInstall } from '../utils/registrationStore';
+import { getRegistrations, invalidateRegistrations, overdueInstall, waitingInstall } from '../utils/registrationStore';
+import { exportRegistrations } from '../utils/exportExcel';
 
 const PAGE = 24;
 export default function RegistrationsPage() {
-  const { user, userRole, userProfile } = useAuth();
+  const { user, userRole, userProfile, canRegister } = useAuth();
+  const [params] = useSearchParams();
   const isRep = userRole === 'rep';
   const myKey = userProfile?.salesRepKey || null;
 
-  const [scope, setScope] = useState(isRep ? 'mine' : 'all');
+  const [scope, setScope] = useState(params.get('scope') || (isRep ? 'mine' : 'all'));
   const [all, setAll] = useState(null);
   const [offline, setOffline] = useState(false);
   const [names, setNames] = useState({});
@@ -26,7 +28,8 @@ export default function RegistrationsPage() {
   const [q, setQ] = useState('');
   const [period, setPeriod] = useState('');
   const [rep, setRep] = useState('');
-  const [special, setSpecial] = useState('');
+  const [special, setSpecial] = useState(params.get('special') || '');
+  const [exporting, setExporting] = useState(false);
   const [limit, setLimit] = useState(PAGE);
   const [showFilters, setShowFilters] = useState(false);
   const [photo, setPhoto] = useState(null);
@@ -49,7 +52,7 @@ export default function RegistrationsPage() {
 
   useEffect(() => {
     getDealerIndex(db)
-      .then((idx) => setNames(Object.fromEntries(idx.entries.map((e) => [e.i, { n: e.n, c: e.c, d: e.d, v: e.v }]))))
+      .then((idx) => setNames(Object.fromEntries(idx.entries.map((e) => [e.i, { n: e.n, c: e.c, d: e.d, v: e.v, x: e.x }]))))
       .catch(() => {});
   }, []);
 
@@ -65,6 +68,7 @@ export default function RegistrationsPage() {
       if (since && (!r.date || r.date.getTime() < since)) return false;
       if (rep && r.salesRep !== rep) return false;
       if (special === 'install' && !waitingInstall(r)) return false;
+      if (special === 'overdue' && !overdueInstall(r)) return false;
       if (special === 'review' && !r.needsReview) return false;
       if (words.length) {
         const dn = names[r.dealerId];
@@ -77,6 +81,7 @@ export default function RegistrationsPage() {
 
   const counts = useMemo(() => ({
     install: (rows ?? []).filter(waitingInstall).length,
+    overdue: (rows ?? []).filter(overdueInstall).length,
     review: (rows ?? []).filter((r) => r.needsReview).length,
   }), [rows]);
 
@@ -88,7 +93,15 @@ export default function RegistrationsPage() {
       <PageHeader
         title={title}
         subtitle={rows ? `${filtered.length} / ${rows.length} kayıt` : 'Yükleniyor…'}
-        actions={<Link to="/registrations/new" className="btn btn-primary btn-sm">+ Yeni kayıt</Link>}
+        actions={(
+          <>
+            <button className="btn btn-secondary btn-sm" disabled={!rows || !filtered.length || exporting}
+              onClick={async () => { setExporting(true); try { await exportRegistrations(filtered, new Map(Object.entries(names))); } finally { setExporting(false); } }}>
+              {exporting ? 'Hazırlanıyor…' : 'Excel\'e aktar'}
+            </button>
+            {canRegister && <Link to="/registrations/new" className="btn btn-primary btn-sm">+ Yeni kayıt</Link>}
+          </>
+        )}
       />
 
       <div className="card mb-16">
@@ -113,6 +126,7 @@ export default function RegistrationsPage() {
           <select className="select" value={special} onChange={(e) => setSpecial(e.target.value)}>
             <option value="">Tüm kayıtlar</option>
             <option value="install">Kurulum bekleyenler ({counts.install})</option>
+            <option value="overdue">Gecikmiş kurulumlar, 30+ gün ({counts.overdue})</option>
             {counts.review > 0 && <option value="review">Kontrol gerekenler ({counts.review})</option>}
           </select>
           {scope === 'all' && (
@@ -122,6 +136,9 @@ export default function RegistrationsPage() {
             </select>
           )}
         </div>
+        {special === 'overdue' && (
+          <p className="text-xs muted mt-8">Tabela veya stant talebinin üzerinden 30 günden fazla geçmiş, ama henüz kurulum fotoğrafı eklenmemiş kayıtlar.</p>
+        )}
         {special === 'install' && (
           <p className="text-xs muted mt-8">Tabela veya stant talep edilmiş, ama henüz kurulum sonrası fotoğrafı eklenmemiş kayıtlar.</p>
         )}

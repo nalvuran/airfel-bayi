@@ -3,7 +3,6 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Login from './pages/Login';
 import Layout from './components/Layout';
-import SyncPage from './pages/SyncPage';
 import DealersPage from './pages/DealersPage';
 import DealerDetailPage from './pages/DealerDetailPage';
 import UsersPage from './pages/UsersPage';
@@ -14,6 +13,9 @@ import AdminMenuPage from './pages/AdminMenuPage';
 
 // Dashboard harita kütüphanesini içerdiği için sadece açıldığında yüklenir
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+// Veri Yükle, Excel okuma kütüphanesini içerdiği için sadece açıldığında yüklenir
+const SyncPage = lazy(() => import('./pages/SyncPage'));
+const BackupPage = lazy(() => import('./pages/BackupPage'));
 
 function PrivateRoute({ children }) {
   const { user } = useAuth();
@@ -51,8 +53,9 @@ function AppRoutes() {
                 <Route path="/registrations" element={<RegistrationsPage />} />
                 <Route path="/my-dealers" element={<Navigate to="/registrations" replace />} />
                 <Route path="/admin" element={<AdminRoute><AdminMenuPage /></AdminRoute>} />
+                <Route path="/admin/backup" element={<AdminRoute><Suspense fallback={null}><BackupPage /></Suspense></AdminRoute>} />
                 <Route path="/admin/users" element={<AdminRoute><UsersPage /></AdminRoute>} />
-                <Route path="/admin/sync" element={<AdminRoute><SyncPage /></AdminRoute>} />
+                <Route path="/admin/sync" element={<AdminRoute><Suspense fallback={<div className="page"><div className="page-subtitle">Yükleniyor…</div></div>}><SyncPage /></Suspense></AdminRoute>} />
               </Routes>
             </Layout>
           </PrivateRoute>

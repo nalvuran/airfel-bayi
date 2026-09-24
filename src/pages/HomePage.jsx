@@ -6,6 +6,8 @@ import { useAuth, ROLE_LABELS } from '../contexts/AuthContext';
 import { getDealerIndex } from '../utils/dealerIndex';
 import { Avatar, fmtNum } from '../components/ui';
 import { useRepProfiles } from '../utils/repProfiles';
+import { OVERDUE_DAYS, getRegistrations, overdueInstall } from '../utils/registrationStore';
+import { useLastBackup } from '../utils/backup';
 
 function Action({ to, title, desc, primary }) {
   return (
@@ -24,6 +26,15 @@ export default function HomePage() {
   const myKey = userProfile?.salesRepKey;
   const [counts, setCounts] = useState(null);
   const profiles = useRepProfiles(db);
+  const [myOverdue, setMyOverdue] = useState(0);
+  const lastBackup = useLastBackup(isOwner);
+
+  useEffect(() => {
+    if (!canRegister) return;
+    getRegistrations(db).then(({ list }) => {
+      setMyOverdue(list.filter((r) => (r.createdByUid === user.uid || (myKey && r.salesRepKey === myKey)) && overdueInstall(r)).length);
+    }).catch(() => {});
+  }, [canRegister, myKey, user.uid]);
 
   useEffect(() => {
     getDealerIndex(db).then(({ entries }) => {
@@ -50,6 +61,19 @@ export default function HomePage() {
           </div>
         </div>
       </div>
+
+      {myOverdue > 0 && (
+        <Link to="/registrations?special=overdue&scope=mine" className="reminder reminder-danger">
+          <strong>{myOverdue} kurulumun {OVERDUE_DAYS} günü geçti</strong>
+          <span>Kurulum yapıldıysa kayda kurulum fotoğrafını ekle. Listeyi görmek için dokun.</span>
+        </Link>
+      )}
+      {isOwner && lastBackup.due && (
+        <Link to="/admin/backup" className="reminder reminder-warn">
+          <strong>{lastBackup.days === null ? 'Henüz hiç yedek alınmadı' : `Son yedek ${lastBackup.days} gün önce alındı`}</strong>
+          <span>Verilerin bir kopyasını bilgisayarına indirmek için dokun.</span>
+        </Link>
+      )}
 
       <div className="stack">
         {canRegister && <Action to="/registrations/new" primary title="+ Yeni saha kaydı" desc="Bayi ziyaretini fotoğraf ve konumla kaydet" />}

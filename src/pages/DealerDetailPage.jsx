@@ -10,6 +10,7 @@ import DealerNotes from '../components/DealerNotes';
 import { Photo, Lightbox, SLOT_LABEL } from '../components/Photos';
 import { Alert, Badge, Card, Info, PageHeader, Skeleton, StatusBadge } from '../components/ui';
 import { clearRegistrationsCache } from './RegistrationsPage';
+import { installWaitDays, overdueInstall } from '../utils/registrationStore';
 
 // Devreye alım rakamlarını tüm kullanıcılara göster. Kısıtlamak gerekirse burayı değiştir.
 const SHOW_DEVREYE = true;
@@ -45,6 +46,7 @@ function Registration({ r, onOpen, canEdit, isOwner, onChanged, onRemoved }) {
         <div className="row" style={{ gap: 6 }}>
           {r.editCount > 0 && <Badge>Düzenlendi · {fmtDate(r.editedAt)}</Badge>}
           {r.attention && <Badge tone="warn">Kurulumdan sonra değiştirildi</Badge>}
+          {overdueInstall({ ...r, date: toDate(r.createdAt) }) && <Badge tone="danger">Kurulum {installWaitDays({ date: toDate(r.createdAt) })} gündür bekliyor</Badge>}
           {r.needsReview && <Badge tone="warn">Kontrol gerekli</Badge>}
         </div>
       </div>

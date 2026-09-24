@@ -456,3 +456,39 @@
     .user-box .sync-chip { display: inline-block; }
   }
   
+  /* Veri Yükle: bakım araçları */
+  .maintenance { margin-top: 20px; }
+  .maintenance > summary {
+    cursor: pointer; font-weight: 800; font-size: 14px; color: var(--muted); padding: 10px 0; list-style: none;
+  }
+  .maintenance > summary::-webkit-details-marker { display: none; }
+  .maintenance > summary::before { content: '▸ '; }
+  .maintenance[open] > summary::before { content: '▾ '; }
+  
+  /* Ana sayfa hatırlatmaları */
+  .reminder {
+    display: grid; gap: 3px; text-decoration: none; border-radius: var(--radius); padding: 14px 16px; margin-bottom: 14px;
+    border: 1px solid transparent; font-size: 13.5px;
+  }
+  .reminder strong { font-size: 15px; font-weight: 800; }
+  .reminder-danger { background: var(--danger-soft); color: var(--danger); border-color: #F3C9CD; }
+  .reminder-warn { background: var(--amber-soft); color: var(--amber); border-color: #F2DEAA; }
+  
+  /* Yedek adımları */
+  .backup-steps { list-style: none; padding: 0; margin: 14px 0 0; display: grid; gap: 6px; font-size: 14px; font-weight: 600; }
+  .backup-steps li span:first-child { display: inline-block; width: 20px; font-weight: 800; }
+  .backup-steps li.done span:first-child { color: var(--green); }
+  .backup-steps li.running { color: var(--ink); }
+  .backup-steps li.waiting { color: var(--faint); }
+  
+  /* Seçim kutuları (yedek türü) */
+  .choice {
+    display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 10px; cursor: pointer;
+    border: 1.5px solid var(--border); background: var(--surface); transition: border-color .15s, background-color .15s;
+  }
+  .choice input { margin-top: 3px; accent-color: var(--red); width: 16px; height: 16px; flex-shrink: 0; }
+  .choice.active { border-color: var(--red); background: var(--red-soft); }
+  .choice.disabled { opacity: 0.55; cursor: not-allowed; }
+  .choice-title { display: block; font-weight: 800; font-size: 14.5px; }
+  .choice-desc { display: block; font-size: 12.5px; color: var(--muted); margin-top: 2px; font-weight: 600; }
+  

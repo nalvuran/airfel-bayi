@@ -77,3 +77,8 @@ export function invalidateRegistrations() { memory = null; }
 export const waitingInstall = (r) =>
   (r.signRequest === true || r.standRequest === true) &&
   !r.photoFiles?.exteriorAfter && !r.photoFiles?.interiorAfter && !r.photos?.exteriorAfter && !r.photos?.interiorAfter;
+
+// Kurulum bekleme süresi (gün) ve 30 günü geçen "gecikmiş" kurulumlar
+export const OVERDUE_DAYS = 30;
+export const installWaitDays = (r) => (r.date ? Math.floor((Date.now() - r.date.getTime()) / 86400000) : 0);
+export const overdueInstall = (r) => waitingInstall(r) && installWaitDays(r) > OVERDUE_DAYS;

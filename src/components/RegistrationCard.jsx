@@ -3,6 +3,7 @@
 import { Link } from 'react-router-dom';
 import { db } from '../firebase';
 import { useThumbs } from '../utils/thumbs';
+import { installWaitDays, overdueInstall, waitingInstall } from '../utils/registrationStore';
 import DevreyeTable, { salesFromIndex } from './DevreyeTable';
 import { Avatar, Badge } from './ui';
 
@@ -10,9 +11,6 @@ const fmtDateTime = (d) => (d
   ? d.toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
   : '-');
 
-const waitingInstall = (r) =>
-  (r.signRequest === true || r.standRequest === true) &&
-  !r.photoFiles?.exteriorAfter && !r.photoFiles?.interiorAfter && !r.photos?.exteriorAfter && !r.photos?.interiorAfter;
 const hasInstallPhoto = (r) => !!(r.photoFiles?.exteriorAfter || r.photoFiles?.interiorAfter);
 
 function Thumb({ url, label, loading, onOpen, canOpen }) {
@@ -80,7 +78,11 @@ export default function RegistrationCard({ r, dealer, repPhoto, onOpenPhoto }) {
           <div className="row" style={{ gap: 6, marginTop: 10 }}>
             {r.attention && <Badge tone="warn">Kurulumdan sonra değiştirildi</Badge>}
             {r.editCount > 0 && <Badge>Düzenlendi</Badge>}
-            {waitingInstall(r) && <Badge tone="warn">Kurulum bekliyor</Badge>}
+            {waitingInstall(r) && (
+              <Badge tone={overdueInstall(r) ? 'danger' : 'warn'}>
+                {overdueInstall(r) ? `Kurulum ${installWaitDays(r)} gündür bekliyor` : 'Kurulum bekliyor'}
+              </Badge>
+            )}
             {hasInstallPhoto(r) && <Badge tone="success">Kurulum fotoğrafı var</Badge>}
             {r.needsReview && <Badge tone="danger">Kontrol gerekli</Badge>}
           </div>

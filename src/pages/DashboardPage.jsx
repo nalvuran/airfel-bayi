@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { getDealerIndex } from '../utils/dealerIndex';
-import { getRegistrations, waitingInstall } from '../utils/registrationStore';
+import { OVERDUE_DAYS, getRegistrations, overdueInstall, waitingInstall } from '../utils/registrationStore';
 import { titleCase, useRepProfiles } from '../utils/repProfiles';
 import { useThumbs } from '../utils/thumbs';
 import VisitMap from '../components/VisitMap';
@@ -83,7 +83,9 @@ function RepCard({ rep }) {
       </div>
       <div className="row mt-8" style={{ justifyContent: 'space-between' }}>
         <span className="text-xs" style={{ fontWeight: 700 }}>%{cover} ziyaret edildi <span className="muted">· {fmtNum(rep.visited)}/{fmtNum(rep.active)}</span></span>
-        {rep.pending > 0 && <Badge tone="warn">{rep.pending} kurulum bekliyor</Badge>}
+        {rep.overdue > 0
+          ? <Badge tone="danger">{rep.overdue} gecikmiş kurulum</Badge>
+          : rep.pending > 0 && <Badge tone="warn">{rep.pending} kurulum bekliyor</Badge>}
       </div>
     </div>
   );
@@ -125,6 +127,7 @@ export default function DashboardPage() {
     const month = scopedRegs.filter((r) => r.date && r.date >= monthStart).length;
     const prevSame = scopedRegs.filter((r) => r.date && r.date >= prevStart && r.date < prevSameEnd).length;
     const pending = scopedRegs.filter(waitingInstall).length;
+    const overdue = scopedRegs.filter(overdueInstall).length;
     const activeVisited = active.filter((e) => visited.has(e.i)).length;
 
     // Haritada her bayinin en son ziyareti
@@ -150,6 +153,7 @@ export default function DashboardPage() {
         visited: own.filter((e) => visited.has(e.i)).length,
         month: rr.filter((r) => r.date && r.date >= monthStart).length,
         pending: rr.filter(waitingInstall).length,
+        overdue: rr.filter(overdueInstall).length,
       };
     }).filter((r) => r.active > 0 || r.month > 0)
       .sort((a, b) => b.month - a.month || pct(b.visited, b.active) - pct(a.visited, a.active));
@@ -160,7 +164,7 @@ export default function DashboardPage() {
       .slice(0, 10);
 
     return {
-      month, prevSame, pending, activeVisited, activeTotal: active.length, points, reps, priority,
+      month, prevSame, pending, overdue, activeVisited, activeTotal: active.length, points, reps, priority,
       recent: scopedRegs.slice(0, 12), total: scopedRegs.length, dealers,
       attention: regs.filter((r) => r.attention),
       monthName: `${MONTHS[now.getMonth()]} ${now.getFullYear()}`,
@@ -191,6 +195,9 @@ export default function DashboardPage() {
           <div className="stat-grid">
             <Tile label="Bu ay ziyaret" value={fmtNum(data.month)} sub={<Trend now={data.month} before={data.prevSame} />} />
             <Tile label="Kurulum bekleyen" value={fmtNum(data.pending)} tone={data.pending ? 'warn' : undefined} sub="tabela / stant talebi" />
+            <Link to={`/registrations?special=overdue${scope === 'mine' ? '&scope=mine' : ''}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+              <Tile label={`${OVERDUE_DAYS} günü geçen kurulum`} value={fmtNum(data.overdue)} tone={data.overdue ? 'danger' : 'success'} sub={data.overdue ? 'listeyi görmek için dokun' : 'gecikmiş kurulum yok'} />
+            </Link>
             <Tile label="Ziyaret edilen aktif bayi" value={`%${pct(data.activeVisited, data.activeTotal)}`} sub={`${fmtNum(data.activeVisited)} / ${fmtNum(data.activeTotal)} bayi`} />
             <Tile label="Toplam saha kaydı" value={fmtNum(data.total)} sub={scope === 'mine' ? 'senin kayıtların' : 'tüm ekip'} />
           </div>

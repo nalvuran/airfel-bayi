@@ -6,6 +6,7 @@ import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { EditRegistration, History, OwnerActions } from '../components/RegistrationEditor';
 import DevreyeTable from '../components/DevreyeTable';
+import DealerNotes from '../components/DealerNotes';
 import { Photo, Lightbox, SLOT_LABEL } from '../components/Photos';
 import { Alert, Badge, Card, Info, PageHeader, Skeleton, StatusBadge } from '../components/ui';
 import { clearRegistrationsCache } from './RegistrationsPage';
@@ -166,6 +167,8 @@ export default function DealerDetailPage() {
           <DevreyeTable sales={dealer.sales} />
         </Card>
       )}
+
+      <DealerNotes dealerId={id} />
 
       <Card
         title={`Saha kayıtları${regs ? ` (${regs.length})` : ''}`}

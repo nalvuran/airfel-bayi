@@ -525,3 +525,8 @@ a.rc-title:hover { color: var(--red); }
 .brand-track { height: 10px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
 .brand-track span { display: block; height: 100%; border-radius: 6px; }
 .brand-num { text-align: right; font-weight: 800; font-size: 12.5px; }
+
+/* Pano fotoğrafı: kırpılmadan, orijinal oranında */
+.post-photo { max-width: 360px; }
+.post-photo figure > button, .post-photo figure > div { aspect-ratio: auto !important; height: auto !important; min-height: 120px; }
+.post-photo img { width: 100% !important; height: auto !important; max-height: 460px; object-fit: contain !important; display: block; }

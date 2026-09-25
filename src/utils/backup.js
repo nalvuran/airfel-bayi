@@ -52,7 +52,7 @@ function downloadBlob(blob, name) {
 
 // Dosya ve klasör adlarında sorun çıkaran karakterleri temizler
 const safe = (s) => String(s || '').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || 'isimsiz';
-const SLOT_FILE = { exterior: 'dis-cephe', interior: 'dukkan-ici', exteriorAfter: 'dis-cephe-sonrasi', interiorAfter: 'dukkan-ici-sonrasi', service: 'servis-talebi' };
+const SLOT_FILE = { exterior: 'dis-cephe', interior: 'dukkan-ici', exteriorAfter: 'dis-cephe-sonrasi', interiorAfter: 'dukkan-ici-sonrasi', service: 'servis-talebi', post: 'pano' };
 const PAGE = 150;
 
 async function collectPhotos({ mode, since, regs, requestsRows, onStep }) {
@@ -84,7 +84,9 @@ async function collectPhotos({ mode, since, regs, requestsRows, onStep }) {
       const month = iso ? iso.slice(0, 7) : 'tarihsiz';
       const day = iso ? iso.slice(0, 10) : 'tarihsiz';
       const dealerName = dealers.get(reg?.dealerId) || reg?.dealerName || reg?.companyTitle || 'bayi-bilinmiyor';
-      const folder = `fotograflar/${month}/${safe(dealerName)} (${safe(reg?.dealerId || '-')})`;
+      const folder = p.slot === 'post'
+        ? `fotograflar/pano/${month}`
+        : `fotograflar/${month}/${safe(dealerName)} (${safe(reg?.dealerId || '-')})`;
       // Aynı bayiye aynı gün birden fazla ziyaret ya da değiştirilmiş fotoğraf olabilir: adlar her zaman benzersiz
       const baseName = `${folder}/${day}_${SLOT_FILE[p.slot] || safe(p.slot)}`;
       let path = `${baseName}.jpg`;

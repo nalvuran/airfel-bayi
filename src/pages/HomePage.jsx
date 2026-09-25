@@ -145,7 +145,7 @@ export default function HomePage() {
           </div>
           {posts && posts.length > 0 ? posts.slice(0, 2).map((p) => (
             <div key={p.id} className="text-sm" style={{ marginTop: 8, color: 'var(--ink-2)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-              {p.pinned && '📌 '}<strong>{p.byName}:</strong> {p.text}
+              {p.pinned && '📌 '}{p.photo && '📷 '}<strong>{p.byName}:</strong> {p.text}
             </div>
           )) : <div className="home-action-desc">Duyurular ve ekipten paylaşımlar</div>}
         </Link>

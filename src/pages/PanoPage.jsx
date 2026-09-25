@@ -8,6 +8,8 @@ import {
 } from '../utils/posts';
 import { useRepProfiles } from '../utils/repProfiles';
 import { Alert, Avatar, Badge, Empty, PageHeader, SkeletonRows } from '../components/ui';
+import PhotoInput from '../components/PhotoInput';
+import { Lightbox, Photo } from '../components/Photos';
 
 const errMsg = (e) => (e?.code === 'permission-denied' ? 'Bu işlem için iznin yok.' : e?.message || String(e));
 const ago = (d) => {
@@ -26,18 +28,24 @@ export function RichText({ text }) {
   return <>{linkify(text || '').map((p, i) => (p.url ? <a key={i} href={p.url} target="_blank" rel="noreferrer">{p.t}</a> : <span key={i}>{p.t}</span>))}</>;
 }
 
-function Composer({ initial = '', placeholder, submitLabel, onSubmit, onCancel, rows = 3 }) {
+function Composer({ initial = '', placeholder, submitLabel, onSubmit, onCancel, rows = 3, withPhoto = false }) {
   const [text, setText] = useState(initial);
+  const [photo, setPhoto] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const clean = text.trim();
   const submit = async () => {
     setBusy(true); setError('');
-    try { await onSubmit(clean); setText(''); } catch (e) { setError(errMsg(e)); } finally { setBusy(false); }
+    try { await onSubmit(clean, photo); setText(''); setPhoto(null); } catch (e) { setError(errMsg(e)); } finally { setBusy(false); }
   };
   return (
     <div>
       <textarea className="input textarea" rows={rows} maxLength={POST_MAX} value={text} placeholder={placeholder} onChange={(e) => setText(e.target.value)} />
+      {withPhoto && (
+        <div className="mt-8" style={{ maxWidth: 200 }}>
+          <PhotoInput label="Fotoğraf (isteğe bağlı)" value={photo} disabled={busy} onChange={setPhoto} />
+        </div>
+      )}
       <div className="row mt-8">
         <button className="btn btn-primary btn-sm" disabled={busy || !clean || clean === initial.trim()} onClick={submit}>{busy ? 'Kaydediliyor…' : submitLabel}</button>
         {onCancel && <button className="btn btn-secondary btn-sm" disabled={busy} onClick={onCancel}>Vazgeç</button>}
@@ -92,7 +100,7 @@ function Comments({ post, photoOf, onCountChange }) {
   );
 }
 
-function Post({ post, isNew, photoOf, onChanged }) {
+function Post({ post, isNew, photoOf, onChanged, onOpenPhoto }) {
   const { user, isOwner } = useAuth();
   const [editing, setEditing] = useState(false);
   const [showComments, setShowComments] = useState(false);
@@ -118,6 +126,11 @@ function Post({ post, isNew, photoOf, onChanged }) {
           ) : (
             <div className="post-text"><RichText text={post.text} /></div>
           )}
+          {post.photo?.photoId && (
+            <div className="post-photo mt-8">
+              <Photo info={post.photo} label={`${post.byName} · Pano`} onOpen={onOpenPhoto} />
+            </div>
+          )}
           {!editing && (
             <div className="row mt-8" style={{ gap: 14 }}>
               <button className="btn-link text-sm" onClick={() => setShowComments((x) => !x)}>
@@ -127,7 +140,7 @@ function Post({ post, isNew, photoOf, onChanged }) {
               {isOwner && <button className="btn-link text-sm" style={{ color: 'var(--muted)' }} onClick={() => run(() => setPinned(db, post.id, !post.pinned))}>{post.pinned ? 'Sabitlemeyi kaldır' : 'Sabitle'}</button>}
               {(mine || isOwner) && (
                 <button className="btn-link text-sm" style={{ color: 'var(--muted)' }}
-                  onClick={() => { if (window.confirm('Yazı yorumlarıyla birlikte silinsin mi?')) run(() => removePost(db, post.id)); }}>Sil</button>
+                  onClick={() => { if (window.confirm('Yazı yorumlarıyla birlikte silinsin mi?')) run(() => removePost(db, post)); }}>Sil</button>
               )}
             </div>
           )}
@@ -147,6 +160,7 @@ export default function PanoPage() {
   const [error, setError] = useState(null);
   const [reload, setReload] = useState(0);
   const [seenBefore] = useState(lastSeenPosts());
+  const [lightbox, setLightbox] = useState(null);
 
   useEffect(() => {
     loadPosts(db, { force: reload > 0 }).then((p) => { setPosts(p); markPostsSeen(); }).catch((e) => setError(e.message));
@@ -156,8 +170,8 @@ export default function PanoPage() {
     <div className="page-narrow">
       <PageHeader title="Pano" subtitle="Duyurular, kampanyalar ve ekipten paylaşımlar" />
       <div className="card mb-16">
-        <Composer placeholder="Ekiple bir şey paylaş… Bağlantılar tıklanabilir olur." submitLabel="Paylaş"
-          onSubmit={async (t) => { await addPost(db, { text: t, user, profile: userProfile }); setReload((x) => x + 1); }} />
+        <Composer withPhoto placeholder="Ekiple bir şey paylaş… Bağlantılar tıklanabilir olur." submitLabel="Paylaş"
+          onSubmit={async (t, photo) => { await addPost(db, { text: t, photo, user, profile: userProfile }); setReload((x) => x + 1); }} />
       </div>
       {error && <Alert tone="danger">Pano yüklenemedi: {error}</Alert>}
       {!posts && !error && <SkeletonRows rows={4} />}
@@ -168,10 +182,11 @@ export default function PanoPage() {
           {posts.map((p) => (
             <Post key={p.id} post={p} photoOf={photoOf}
               isNew={p.byUid !== user.uid && p.date && p.date.getTime() > seenBefore}
-              onChanged={() => setReload((x) => x + 1)} />
+              onChanged={() => setReload((x) => x + 1)} onOpenPhoto={setLightbox} />
           ))}
         </div>
       ))}
+      <Lightbox photo={lightbox} onClose={() => setLightbox(null)} />
     </div>
   );
 }

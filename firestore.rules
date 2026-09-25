@@ -186,12 +186,14 @@ service cloud.firestore {
     // ---------- Fotoğraflar ----------
     match /photos/{photoId} {
       allow read: if isActive();
-      allow create: if canRegister()
+      // Kayıt ve talep fotoğrafları temsilci/sahipten, pano fotoğrafları herkesten gelebilir
+      allow create: if isActive()
         && request.resource.data.get('uploadedBy', null) == request.auth.uid
         && request.resource.data.data is bytes
         && request.resource.data.data.size() < 900 * 1024;
       allow update: if false;
-      allow delete: if isOwner();
+      // Sahip her fotoğrafı, yükleyen kendi fotoğrafını silebilir (ör. fotoğraflı pano yazısını silerken)
+      allow delete: if isOwner() || (isActive() && resource.data.get('uploadedBy', null) == request.auth.uid);
     }
 
     // ---------- Kart önizlemeleri ----------

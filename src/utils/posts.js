@@ -1,10 +1,11 @@
 // src/utils/posts.js
 // Pano: posts/{id} ve yorumlar posts/{id}/comments/{id}. Fotoğraf yok, bağlantılar tıklanabilir.
 import {
-  addDoc, collection, doc, getDocs, increment, limit, orderBy, query,
+  collection, doc, getDocs, increment, limit, orderBy, query,
   serverTimestamp, updateDoc, where, writeBatch,
 } from 'firebase/firestore';
 import { commitOrQueue } from './offline';
+import { addPhoto } from './registrations';
 
 export const POST_MAX = 2000;
 const SEEN_KEY = 'airfel.panoSeen';
@@ -33,10 +34,16 @@ export function invalidatePosts() { cache = null; }
 
 const author = (user, profile) => ({ byUid: user.uid, byName: profile?.name || user.email, byRepKey: profile?.salesRepKey || null });
 
-export async function addPost(db, { text, user, profile }) {
-  const res = await commitOrQueue(addDoc(collection(db, 'posts'), {
+// photo: isteğe bağlı, compressImage çıktısı. Fotoğraf ayrı dokümanda, yazıyla aynı işlemde yazılır.
+export async function addPost(db, { text, photo, user, profile }) {
+  const batch = writeBatch(db);
+  const ref = doc(collection(db, 'posts'));
+  const photoInfo = photo ? addPhoto(batch, db, ref.id, 'post', photo, user.uid) : null;
+  batch.set(ref, {
     text, ...author(user, profile), createdAt: serverTimestamp(), pinned: false, commentCount: 0,
-  }));
+    photo: photoInfo ? { photoId: photoInfo.photoId } : null,
+  });
+  const res = await commitOrQueue(batch.commit());
   invalidatePosts(); return res;
 }
 export async function editPost(db, id, text) {
@@ -47,12 +54,13 @@ export async function setPinned(db, id, pinned) {
   const res = await commitOrQueue(updateDoc(doc(db, 'posts', id), { pinned, pinnedAt: pinned ? serverTimestamp() : null }));
   invalidatePosts(); return res;
 }
-export async function removePost(db, id) {
-  // Önce yorumlar, sonra yazı
-  const comments = await getDocs(collection(db, 'posts', id, 'comments'));
+export async function removePost(db, post) {
+  // Önce yorumlar ve fotoğraf, sonra yazı
+  const comments = await getDocs(collection(db, 'posts', post.id, 'comments'));
   const batch = writeBatch(db);
   comments.docs.forEach((c) => batch.delete(c.ref));
-  batch.delete(doc(db, 'posts', id));
+  if (post.photo?.photoId) batch.delete(doc(db, 'photos', post.photo.photoId));
+  batch.delete(doc(db, 'posts', post.id));
   const res = await commitOrQueue(batch.commit());
   invalidatePosts(); return res;
 }

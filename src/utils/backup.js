@@ -31,6 +31,11 @@ const STEPS = [
   ['registrations', 'Saha kayıtları', () => getDocs(collection(db, 'registrations'))],
   ['history', 'Değişiklik geçmişleri', () => getDocs(collectionGroup(db, 'history'))],
   ['notes', 'Bayi notları', () => getDocs(collectionGroup(db, 'notes'))],
+  ['requests', 'Talepler', () => getDocs(collection(db, 'requests'))],
+  ['followUps', 'Takipler', () => getDocs(collection(db, 'followUps'))],
+  ['posts', 'Pano yazıları', () => getDocs(collection(db, 'posts'))],
+  ['comments', 'Pano yorumları', () => getDocs(collectionGroup(db, 'comments'))],
+  ['snapshots', 'Yükleme geçmişi (devreye alım)', () => getDocs(collection(db, 'snapshots'))],
   ['users', 'Kullanıcılar', () => getDocs(collection(db, 'users'))],
   ['repProfiles', 'Temsilci profilleri', () => getDocs(collection(db, 'repProfiles'))],
   ['syncLogs', 'Yükleme geçmişi', () => getDocs(collection(db, 'syncLogs'))],
@@ -47,10 +52,10 @@ function downloadBlob(blob, name) {
 
 // Dosya ve klasör adlarında sorun çıkaran karakterleri temizler
 const safe = (s) => String(s || '').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || 'isimsiz';
-const SLOT_FILE = { exterior: 'dis-cephe', interior: 'dukkan-ici', exteriorAfter: 'dis-cephe-sonrasi', interiorAfter: 'dukkan-ici-sonrasi' };
+const SLOT_FILE = { exterior: 'dis-cephe', interior: 'dukkan-ici', exteriorAfter: 'dis-cephe-sonrasi', interiorAfter: 'dukkan-ici-sonrasi', service: 'servis-talebi' };
 const PAGE = 150;
 
-async function collectPhotos({ mode, since, regs, onStep }) {
+async function collectPhotos({ mode, since, regs, requestsRows, onStep }) {
   const coll = collection(db, 'photos');
   const base = mode === 'new' && since ? [where('createdAt', '>', Timestamp.fromDate(since)), orderBy('createdAt')] : [orderBy('createdAt')];
   const total = (await getCountFromServer(query(coll, ...base))).data().count;
@@ -58,6 +63,8 @@ async function collectPhotos({ mode, since, regs, onStep }) {
 
   const files = {};
   const byReg = new Map(regs.map((r) => [r._id, r]));
+  // Servis talebi fotoğrafları talebe bağlı: klasörleme için talebi kayıt gibi kullan
+  (requestsRows || []).forEach((q) => byReg.set(q._id, { dealerId: q.dealerId, dealerName: q.dealerName, createdAt: q.createdAt }));
   const index = await getDealerIndex(db).catch(() => ({ entries: [] }));
   const dealers = new Map(index.entries.map((e) => [e.i, e.n]));
   let last = null;
@@ -117,14 +124,14 @@ export async function runBackup({ user, onStep, photos = 'none', photosSince = n
     return { counts, sizeBytes: blob.size };
   }
 
-  const { files, count, newest } = await collectPhotos({ mode: photos, since: photosSince, regs: out.collections.registrations, onStep });
+  const { files, count, newest } = await collectPhotos({ mode: photos, since: photosSince, regs: out.collections.registrations, requestsRows: out.collections.requests, onStep });
   onStep({ key: 'zip', label: 'ZIP dosyası hazırlanıyor', status: 'running' });
   const { zipSync, strToU8 } = await import('fflate');
   files['veriler.json'] = strToU8(json);
   files['BENİOKU.txt'] = strToU8(
     `Airfel Bayi Takip yedeği\r\nTarih: ${out.createdAt}\r\nAlan: ${user.email}\r\n` +
     `Fotoğraf sayısı: ${count} (${photos === 'all' ? 'tüm fotoğraflar' : `${photosSince ? photosSince.toLocaleDateString('tr-TR') : ''} sonrasında eklenenler`})\r\n\r\n` +
-    'veriler.json: bayiler, kayıtlar, değişiklik geçmişleri, notlar, kullanıcılar\r\nfotograflar/: ay / bayi klasörlerine ayrılmış saha fotoğrafları\r\n',
+    'veriler.json: bayiler, kayıtlar, değişiklik geçmişleri, notlar, talepler, takipler, pano, kullanıcılar\r\nfotograflar/: ay / bayi klasörlerine ayrılmış saha fotoğrafları\r\n',
   );
   const zipped = zipSync(files);
   const blob = new Blob([zipped], { type: 'application/zip' });

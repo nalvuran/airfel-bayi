@@ -1,12 +1,12 @@
 // src/pages/SyncPage.jsx
 import { useState } from 'react';
-import { collection, doc, writeBatch, addDoc, serverTimestamp, getCountFromServer } from 'firebase/firestore';
+import { collection, doc, writeBatch, addDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { parseCustomerData } from '../utils/importers';
 import { PageHeader } from '../components/ui';
 import { buildMissingThumbs } from '../utils/thumbs';
-import { toIndexEntry, writeDealerIndex, rebuildDealerIndexFromFirestore, clearDealerIndexCache } from '../utils/dealerIndex';
+import { toIndexEntry, writeDealerIndex, rebuildDealerIndexFromFirestore, clearDealerIndexCache, loadDealerIndex, dealerHash } from '../utils/dealerIndex';
 
 const C = {
   red: 'var(--red)', redBg: 'var(--red-soft)', text: 'var(--ink)', muted: 'var(--muted)',
@@ -91,9 +91,10 @@ function CustomerDataSection({ user }) {
   const [state, setState] = useState('idle'); // idle | writing | done | error
   const [progress, setProgress] = useState(0);
   const [msg, setMsg] = useState(null);
+  const [toWrite, setToWrite] = useState(null);
 
   const onFile = async (file) => {
-    setMsg(null); setState('idle'); setProgress(0); setFileName(file.name);
+    setMsg(null); setState('idle'); setProgress(0); setFileName(file.name); setToWrite(null);
     try {
       const res = parseCustomerData(await file.arrayBuffer());
       if (res.error) { setParsed(null); setMsg({ tone: 'error', text: res.error }); return; }
@@ -109,20 +110,33 @@ function CustomerDataSection({ user }) {
     let written = 0;
     const onProg = (n) => { written = n; setProgress(n); };
     try {
-      const n = await writeInBatches('dealers', parsed.dealers,
+      // Sadece bilgisi değişen bayileri yaz (günlük/haftalık yüklemede kota ve süre tasarrufu)
+      const current = await loadDealerIndex(db).catch(() => ({ entries: [] }));
+      const oldMap = new Map(current.entries.map((e) => [e.i, e]));
+      const changed = parsed.dealers.filter((d) => oldMap.get(d.id)?.h !== dealerHash(d.data));
+      setToWrite(changed.length);
+      const n = await writeInBatches('dealers', changed,
         { merge: true, extra: { syncedAt: serverTimestamp(), lastSyncId: syncId } }, onProg);
-      const count = (await getCountFromServer(collection(db, 'dealers'))).data().count;
-      // Liste sayfasının kullandığı özet dizini güncelle
-      await (count === parsed.dealers.length
-        ? writeDealerIndex(db, parsed.dealers.map((d) => toIndexEntry(d.id, d.data)))
-        : rebuildDealerIndexFromFirestore(db));
+
+      // Dizin: dosyadaki bayiler + dosyada olmayan (eski) bayiler aynen korunur
+      const inFile = new Set(parsed.dealers.map((d) => d.id));
+      const kept = current.entries.filter((e) => !inFile.has(e.i)).map(({ search, ...e }) => e); // eslint-disable-line no-unused-vars
+      await writeDealerIndex(db, [...parsed.dealers.map((d) => toIndexEntry(d.id, d.data)), ...kept]);
       clearDealerIndexCache();
+
+      // Bu yüklemenin fotoğrafı: bayi başına FY26 [kombi, klima]. İleride dönemsel karşılaştırma için.
+      const day = new Date().toISOString().slice(0, 10);
+      const snap = Object.fromEntries(parsed.dealers.map((d) => [d.id, [d.data.sales?.fy26?.cb ?? 0, d.data.sales?.fy26?.ac ?? 0]]));
+      await setDoc(doc(db, 'snapshots', day), { at: serverTimestamp(), by: user.email, fy: 'FY26', count: parsed.dealers.length, data: JSON.stringify(snap) });
+
       await addDoc(collection(db, 'syncLogs'), {
         type: 'customerData', syncId, fileName, by: user.email, at: serverTimestamp(),
-        written: n, stats: { ...parsed.stats, duplicateIds: parsed.stats.duplicateIds.length },
+        written: n, unchanged: parsed.dealers.length - n, stats: { ...parsed.stats, duplicateIds: parsed.stats.duplicateIds.length },
       });
       setState('done');
-      setMsg({ tone: 'ok', text: `${n} bayi yazıldı ve bayi listesi güncellendi. Firestore'da şu an toplam ${count} bayi var.` });
+      setMsg({ tone: 'ok', text: n
+        ? `${n} bayinin bilgisi değişmişti, güncellendi. ${parsed.dealers.length - n} bayi aynı kaldığı için yeniden yazılmadı. Toplam ${parsed.dealers.length + kept.length} bayi.`
+        : `Hiçbir bayinin bilgisi değişmemiş; yazma yapılmadı. Toplam ${parsed.dealers.length + kept.length} bayi.` });
     } catch (e) {
       setState('error');
       setMsg({ tone: 'error', text: `Yazma yarıda kaldı (${written} kayıt yazıldı): ${e.message}. Aynı dosyayı tekrar yüklemek güvenli, kopya oluşmaz.` });
@@ -134,7 +148,7 @@ function CustomerDataSection({ user }) {
     <section style={card}>
       <h2 className="card-title">Bayi listesini güncelle</h2>
       <p style={{ fontSize: 14, color: C.muted, margin: '6px 0 16px' }}>
-        Customer Data Excel dosyasını seç. Mevcut bayiler güncellenir, yeniler eklenir; uygulamada girilen diğer bilgiler silinmez.
+        Customer Data Excel dosyasını seç. Sadece bilgisi değişen bayiler yazılır, yeniler eklenir; uygulamada girilen bilgiler (kayıtlar, notlar, talepler) silinmez. Günlük ya da haftalık yüklemen önerilir.
       </p>
       <FilePicker onFile={onFile} disabled={state === 'writing'} fileName={fileName} />
 
@@ -163,10 +177,10 @@ function CustomerDataSection({ user }) {
           )}
           <div style={{ marginTop: 20 }}>
             <button style={btn(true, state === 'writing')} disabled={state === 'writing'} onClick={onWrite}>
-              {state === 'writing' ? 'Yükleniyor…' : `${s.dealers} bayiyi yükle`}
+              {state === 'writing' ? 'Yükleniyor…' : 'Bayi listesini güncelle'}
             </button>
           </div>
-          {(state === 'writing' || state === 'done') && <Progress done={progress} total={s.dealers} />}
+          {(state === 'writing' || state === 'done') && toWrite > 0 && <Progress done={progress} total={toWrite} />}
         </>
       )}
       {msg && <Message tone={msg.tone}>{msg.text}</Message>}

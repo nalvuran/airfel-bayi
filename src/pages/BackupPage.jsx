@@ -63,7 +63,7 @@ export default function BackupPage() {
       <Card title="Yedek türü" className="mt-16">
         <div className="stack" style={{ gap: 10 }}>
           <Choice name="kind" value="data" current={kind} onChange={setKind} disabled={working}
-            title="Sadece veriler" desc="Bayiler, kayıtlar, değişiklik geçmişleri, notlar, kullanıcılar. Birkaç MB, birkaç saniye sürer. Sık alınması önerilir." />
+            title="Sadece veriler" desc="Bayiler, kayıtlar, değişiklik geçmişleri, notlar, talepler, pano ve kullanıcılar. Birkaç MB, birkaç saniye sürer. Sık alınması önerilir." />
           <Choice name="kind" value="photos" current={kind} onChange={setKind} disabled={working}
             title="Veriler + fotoğraflar"
             desc={`Tek bir ZIP dosyası; fotoğraflar ay ve bayi klasörlerine ayrılmış olarak. Büyük dosya, bilgisayardan alınması önerilir.${lastPhoto?.at ? ` Son fotoğraflı yedek: ${fmtDate(lastPhoto.at)}.` : lastPhoto === null ? ' Henüz fotoğraflı yedek alınmadı.' : ''}`} />

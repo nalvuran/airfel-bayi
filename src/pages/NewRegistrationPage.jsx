@@ -7,6 +7,10 @@ import { getDealerIndex } from '../utils/dealerIndex';
 import { DealerPicker, LocationInput, PhoneInput, Req, YesNo } from '../components/FormFields';
 import { createRegistration } from '../utils/registrations';
 import PhotoInput from '../components/PhotoInput';
+import { BrandPicker, FollowUpField, RequestDraftEditor, emptyDraft } from '../components/FeatureFields';
+import { getRegistrations } from '../utils/registrationStore';
+import { loadOpenFollowUps } from '../utils/followUps';
+import { validateRequestDraft } from '../utils/requests';
 import { Alert, Card, PageHeader, Skeleton } from '../components/ui';
 import { clearRegistrationsCache } from './RegistrationsPage';
 
@@ -24,6 +28,11 @@ export default function NewRegistrationPage() {
   const [f, setF] = useState({ contactName: '', phone: '', email: '', signRequest: null, standRequest: null });
   const [loc, setLoc] = useState(null);
   const [photos, setPhotos] = useState({ exterior: null, interior: null });
+  const [brands, setBrands] = useState({ brands: [], other: '' });
+  const [brandsFrom, setBrandsFrom] = useState(null); // bayinin son kaydının tarihi (hazır gelen markalar için)
+  const [drafts, setDrafts] = useState([]);
+  const [followUp, setFollowUp] = useState(null);
+  const [openFollowUp, setOpenFollowUp] = useState(null);
   const [errors, setErrors] = useState([]);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -35,6 +44,14 @@ export default function NewRegistrationPage() {
   const set = (k) => (v) => setF((x) => ({ ...x, [k]: v }));
   const pickDealer = (e) => {
     setDealer(e);
+    setBrands({ brands: [], other: '' }); setBrandsFrom(null); setOpenFollowUp(null);
+    if (!e) return;
+    // Markalar bayinin son kaydından hazır gelsin; temsilci sadece değişeni düzeltsin
+    getRegistrations(db).then(({ list }) => {
+      const last = list.find((r) => r.dealerId === e.i && Array.isArray(r.brands));
+      if (last) { setBrands({ brands: last.brands, other: last.brandsOther || '' }); setBrandsFrom(last.date); }
+    }).catch(() => {});
+    loadOpenFollowUps(db).then((l) => setOpenFollowUp(l.find((f) => f.dealerId === e.i) || null)).catch(() => {});
   };
 
   // Bayi detayından gelindiyse bayiyi otomatik seç
@@ -57,6 +74,7 @@ export default function NewRegistrationPage() {
     if (!photos.interior) e.push('Dükkan içi fotoğrafı ekle');
     if (f.phone && f.phone.length !== 9) e.push('Telefon numarasını tamamla (05 sonrası 9 hane)');
     if (f.email.trim() && !/^\S+@\S+\.\S+$/.test(f.email.trim())) e.push('E-posta adresini kontrol et');
+    drafts.forEach((d, i) => { const m = validateRequestDraft(d); if (m) e.push(`${i + 1}. talep: ${m.replace(/\.$/, '')}`); });
     return e;
   };
 
@@ -68,6 +86,7 @@ export default function NewRegistrationPage() {
     try {
       const { queued } = await createRegistration(db, {
         user, profile: userProfile, photos,
+        dealer, requests: drafts, followUpDate: followUp, hadOpenFollowUp: !!openFollowUp,
         fields: {
           dealerId: dealer.i,
           platformId: dealer.i.startsWith('NOID-') ? null : dealer.i,
@@ -83,6 +102,9 @@ export default function NewRegistrationPage() {
           locationSource: loc.locationSource,
           locationAccuracy: loc.locationAccuracy,
           mapsUrl: loc.mapsUrl,
+          brands: brands.brands,
+          brandsOther: brands.other.trim() || null,
+          followUpDate: followUp || null,
         },
       });
       clearRegistrationsCache();
@@ -144,6 +166,30 @@ export default function NewRegistrationPage() {
           <PhotoInput label="Dış cephe" required value={photos.exterior} onChange={(p) => setPhotos((x) => ({ ...x, exterior: p }))} disabled={saving} />
           <PhotoInput label="Dükkan içi" required value={photos.interior} onChange={(p) => setPhotos((x) => ({ ...x, interior: p }))} disabled={saving} />
         </div>
+      </Card>
+
+      <Card title="Bayide hangi markalar var?"
+        desc={brandsFrom ? `Bayinin ${brandsFrom.toLocaleDateString('tr-TR')} tarihli kaydından hazır geldi; değişen varsa düzelt.` : 'Bayinin sattığı markaları işaretle.'}>
+        <BrandPicker value={brands.brands} other={brands.other} onChange={setBrands} disabled={saving} />
+      </Card>
+
+      <Card title="Bayinin talebi var mı?" desc="Katalog, eğitim, servis sorunu ya da başka bir talep. Yoksa boş bırak.">
+        {drafts.map((d) => (
+          <RequestDraftEditor key={d.key} draft={d} disabled={saving}
+            onChange={(nd) => setDrafts((x) => x.map((y) => (y.key === d.key ? nd : y)))}
+            onRemove={() => setDrafts((x) => x.filter((y) => y.key !== d.key))} />
+        ))}
+        <button type="button" className="btn btn-secondary btn-sm" style={{ marginTop: drafts.length ? 12 : 0 }} disabled={saving}
+          onClick={() => setDrafts((x) => [...x, emptyDraft()])}>
+          + Talep ekle
+        </button>
+      </Card>
+
+      <Card title="Tekrar uğra (isteğe bağlı)"
+        desc={openFollowUp
+          ? `Bu bayi için ${openFollowUp.date.split('-').reverse().join('.')} tarihli bir takip vardı; bu kayıtla kapanacak. İstersen yeni bir tarih seç.`
+          : 'Bu bayiye tekrar uğraman gereken bir tarih varsa seç; ana sayfanda hatırlatılır.'}>
+        <FollowUpField value={followUp} onChange={setFollowUp} dealerName={dealer?.n} disabled={saving} />
       </Card>
 
       <div className="mt-16">

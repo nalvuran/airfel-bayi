@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { EditRegistration, History, OwnerActions } from '../components/RegistrationEditor';
 import DevreyeTable from '../components/DevreyeTable';
 import DealerNotes from '../components/DealerNotes';
+import { DealerBrands, DealerFollowUp, DealerRequests, TrendLine } from '../components/DealerExtras';
 import { Photo, Lightbox, SLOT_LABEL } from '../components/Photos';
 import { Alert, Badge, Card, Info, PageHeader, Skeleton, StatusBadge } from '../components/ui';
 import { clearRegistrationsCache } from './RegistrationsPage';
@@ -167,8 +168,13 @@ export default function DealerDetailPage() {
       {SHOW_DEVREYE && (
         <Card title="Devreye alım (adet)">
           <DevreyeTable sales={dealer.sales} />
+          <TrendLine sales={dealer.sales} />
         </Card>
       )}
+
+      <DealerFollowUp dealer={{ i: id, n: dealer.name }} />
+      <DealerRequests dealer={{ i: id, n: dealer.name }} dealerRepKey={dealer.salesRepKey} onOpenPhoto={setLightbox} />
+      <DealerBrands regs={regs} />
 
       <DealerNotes dealerId={id} />
 

@@ -10,6 +10,8 @@ import NewRegistrationPage from './pages/NewRegistrationPage';
 import RegistrationsPage from './pages/RegistrationsPage';
 import HomePage from './pages/HomePage';
 import AdminMenuPage from './pages/AdminMenuPage';
+import RequestsPage from './pages/RequestsPage';
+import PanoPage from './pages/PanoPage';
 
 // Dashboard harita kütüphanesini içerdiği için sadece açıldığında yüklenir
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
@@ -51,6 +53,8 @@ function AppRoutes() {
                 <Route path="/registrations/new" element={<RegisterRoute><NewRegistrationPage /></RegisterRoute>} />
                 <Route path="/dashboard" element={<Suspense fallback={<div className="page"><div className="page-subtitle">Dashboard yükleniyor…</div></div>}><DashboardPage /></Suspense>} />
                 <Route path="/registrations" element={<RegistrationsPage />} />
+                <Route path="/requests" element={<RequestsPage />} />
+                <Route path="/pano" element={<PanoPage />} />
                 <Route path="/my-dealers" element={<Navigate to="/registrations" replace />} />
                 <Route path="/admin" element={<AdminRoute><AdminMenuPage /></AdminRoute>} />
                 <Route path="/admin/backup" element={<AdminRoute><Suspense fallback={null}><BackupPage /></Suspense></AdminRoute>} />

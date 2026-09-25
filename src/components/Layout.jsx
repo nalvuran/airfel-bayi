@@ -50,6 +50,8 @@ export default function Layout({ children }) {
     { label: 'Bayiler', to: '/dealers' },
     ...(canRegister ? [{ label: 'Yeni Kayıt', to: '/registrations/new' }] : []),
     { label: regsLabel, to: '/registrations', end: true },
+    { label: 'Talepler', to: '/requests' },
+    { label: 'Pano', to: '/pano' },
     { label: 'Dashboard', to: '/dashboard' },
     ...(isOwner ? [
       { label: 'Kullanıcılar', to: '/admin/users' },

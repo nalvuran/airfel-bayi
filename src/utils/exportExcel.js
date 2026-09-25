@@ -1,6 +1,7 @@
 // src/utils/exportExcel.js
 // Kayıt ve bayi listelerini Excel dosyası olarak indirir. Excel kütüphanesi sadece gerektiğinde yüklenir.
 import { installWaitDays, overdueInstall, waitingInstall } from './registrationStore';
+import { CATALOG_ITEMS, REQUEST_STATUS, REQUEST_TYPES, TRAINING_TOPICS } from './catalog';
 
 const yn = (v) => (v === true ? 'Evet' : v === false ? 'Hayır' : '');
 const today = () => new Date().toISOString().slice(0, 10);
@@ -58,6 +59,8 @@ export function exportRegistrations(regs, dealers) {
       'Tabela talebi': yn(r.signRequest),
       'Stant talebi': yn(r.standRequest),
       'Kurulum durumu': installStatus(r),
+      'Sattığı markalar': [...(r.brands || []), ...(r.brandsOther ? [r.brandsOther] : [])].join(', '),
+      'Tekrar uğra': r.followUpDate ? r.followUpDate.split('-').reverse().join('.') : '',
       'Konum': mapsLink(r),
       ...devreye(d?.v),
       'Kaynak': r.source === 'legacySheets' ? 'Eski sistem' : 'Uygulama',
@@ -98,4 +101,30 @@ export function exportDealers(entries, regs) {
     };
   });
   return download(rows, 'Bayiler', `airfel-bayiler-${today()}.xlsx`);
+}
+
+export function exportRequests(list, dealers) {
+  const rows = list.map((q) => {
+    const d = dealers.get(q.dealerId);
+    return {
+      'Açılış tarihi': q.date || '',
+      'Durum': REQUEST_STATUS[q.status]?.label || q.status,
+      'Tür': REQUEST_TYPES[q.type]?.label || q.type,
+      'Katalog': q.type === 'catalog' ? (q.items || []).map((i) => CATALOG_ITEMS[i] || i).join(', ') : '',
+      'Eğitim konusu': q.type === 'training' ? TRAINING_TOPICS[q.topic] || q.topic || '' : '',
+      'Açıklama': q.text || '',
+      'Bayi': q.dealerName || d?.n || '',
+      'Platform ID': q.dealerId && !q.dealerId.startsWith('NOID-') ? q.dealerId : '',
+      'İl': d?.c || '',
+      'İlçe': d?.d || '',
+      'Distribütör': d?.x || '',
+      'Bayinin temsilcisi': d?.r || '',
+      'Talebi açan': q.createdByName || '',
+      'Kapanış tarihi': q.closedDate || '',
+      'Kapatan': q.closedByName || '',
+      'Kapanış notu': q.closeNote || '',
+      'Uygulamada aç': appLink(q.dealerId),
+    };
+  });
+  return download(rows, 'Talepler', `airfel-talepler-${today()}.xlsx`);
 }

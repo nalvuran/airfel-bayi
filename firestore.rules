@@ -1,0 +1,236 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Kimlik ve roller ----------
+    // Roller: owner (sahip; eski 'admin' değeri de sahip sayılır), manager (yönetici, sadece izler), rep (temsilci)
+    function signedIn() { return request.auth != null; }
+    function userPath() { return /databases/$(database)/documents/users/$(request.auth.uid); }
+    function me() { return get(userPath()).data; }
+    function isActive() {
+      return signedIn() && exists(userPath()) && me().get('active', true) == true;
+    }
+    function myRole() { return me().get('role', 'rep'); }
+    function isOwner() { return isActive() && myRole() in ['owner', 'admin']; }
+    function isRep() { return isActive() && !(myRole() in ['owner', 'admin', 'manager']); }
+    function canRegister() { return isOwner() || isRep(); }
+    function myRepKey() { return me().get('salesRepKey', null); }
+    function regPath(regId) { return /databases/$(database)/documents/registrations/$(regId); }
+    // Kaydı giren temsilci ya da kayıt onun temsilci adına kayıtlı (eski sistem kayıtları)
+    function ownsRegData(r) {
+      return r.get('createdByUid', null) == request.auth.uid
+        || (myRepKey() != null && r.get('salesRepKey', null) == myRepKey());
+    }
+
+    // ---------- Kullanıcılar ----------
+    // Herkes kendi profilini okur. Hesap yönetimi sadece sahipte.
+    // Sahip rolü uygulamadan verilemez; sahip hesabının rolü değiştirilemez ve pasif yapılamaz.
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isOwner());
+      allow create: if isOwner() && request.resource.data.get('role', 'rep') in ['rep', 'manager'];
+      allow update: if isOwner() && (
+        (resource.data.get('role', 'rep') in ['owner', 'admin']
+          && request.resource.data.get('role', 'rep') == resource.data.get('role', 'rep')
+          && request.resource.data.get('active', true) == true)
+        || (!(resource.data.get('role', 'rep') in ['owner', 'admin'])
+          && request.resource.data.get('role', 'rep') in ['rep', 'manager'])
+      );
+      allow delete: if false;
+    }
+
+    // ---------- Bayi verisi (Customer Data) ----------
+    match /dealers/{dealerId} {
+      allow read: if isActive();
+      allow write: if isOwner();
+
+      // Bayi notları: herkes okur ve yazar; yazan kendi notunu düzenler ve siler, sahip her notu silebilir
+      match /notes/{noteId} {
+        function validText() {
+          return request.resource.data.text is string
+            && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 2000;
+        }
+        allow read: if isActive();
+        allow create: if isActive() && validText()
+          && request.resource.data.byUid == request.auth.uid
+          && request.resource.data.keys().hasOnly(['text', 'byUid', 'byName', 'byRepKey', 'createdAt']);
+        allow update: if isActive() && validText()
+          && resource.data.byUid == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt']);
+        allow delete: if isActive() && (resource.data.byUid == request.auth.uid || isOwner());
+      }
+    }
+    match /dealerIndex/{chunkId} {
+      allow read: if isActive();
+      allow write: if isOwner();
+    }
+
+    // ---------- Saha kayıtları ----------
+    match /registrations/{regId} {
+      // Her güncellemede aynı işlemde yeni bir iz kaydı yazılmış olmalı
+      function historyWritten() {
+        return request.resource.data.get('lastHistoryId', null) != resource.data.get('lastHistoryId', null)
+          && existsAfter(/databases/$(database)/documents/registrations/$(regId)/history/$(request.resource.data.lastHistoryId));
+      }
+      // Temsilcinin değiştirebileceği alanlar
+      function repEditableOnly() {
+        return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'contactName', 'phone', 'email', 'signRequest', 'standRequest', 'brands', 'brandsOther',
+          'location', 'locationSource', 'locationAccuracy', 'mapsUrl',
+          'photoFiles', 'thumbs', 'afterPhotosAt', 'attention', 'attentionAt',
+          'editedAt', 'editedByUid', 'editedByName', 'editCount', 'lastHistoryId', 'syncAt'
+        ]);
+      }
+      // "Kurulumdan sonra değiştirildi" işaretini sadece sahip kaldırabilir
+      function attentionKept() {
+        return resource.data.get('attention', false) != true || request.resource.data.get('attention', false) == true;
+      }
+
+      allow read: if isActive();
+      // Kayıt kendi adına, listedeki bir bayiye açılır (temsilci ve sahip)
+      allow create: if canRegister()
+        && request.resource.data.createdByUid == request.auth.uid
+        && request.resource.data.salesRepKey == myRepKey()
+        && exists(/databases/$(database)/documents/dealers/$(request.resource.data.dealerId));
+      allow update: if
+        (isOwner() && (historyWritten() || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['thumbs', 'syncAt'])))
+        || (isRep() && ownsRegData(resource.data) && repEditableOnly() && attentionKept() && historyWritten());
+      allow delete: if isOwner();
+
+      // Değişiklik geçmişi: herkes okur, bir kez yazılır, değiştirilemez
+      match /history/{hid} {
+        allow read: if isActive();
+        allow create: if request.resource.data.byUid == request.auth.uid
+          && (isOwner() || (isRep() && ownsRegData(get(regPath(regId)).data)));
+        allow update: if false;
+        allow delete: if isOwner();
+      }
+    }
+
+    // ---------- Talepler (katalog, eğitim, servis sorunu, diğer) ----------
+    match /requests/{reqId} {
+      // Kapatabilecekler: sahip, talebi açan temsilci, talebi açanla aynı temsilci adı ya da bayinin temsilcisi
+      function canCloseIt() {
+        return isOwner() || (isRep() && (
+          resource.data.createdByUid == request.auth.uid
+          || (myRepKey() != null && (
+               resource.data.get('createdByRepKey', null) == myRepKey()
+               || get(/databases/$(database)/documents/dealers/$(resource.data.dealerId)).data.get('salesRepKey', null) == myRepKey()))));
+      }
+      allow read: if isActive();
+      allow create: if canRegister()
+        && request.resource.data.createdByUid == request.auth.uid
+        && request.resource.data.status == 'open'
+        && request.resource.data.type in ['catalog', 'training', 'service', 'other']
+        && exists(/databases/$(database)/documents/dealers/$(request.resource.data.dealerId));
+      // Kapatırken sadece durum bilgileri değişebilir
+      allow update: if canCloseIt()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'closedAt', 'closedByUid', 'closedByName', 'closeNote', 'syncAt'])
+        && request.resource.data.status in ['open', 'done', 'cancelled'];
+      allow delete: if isOwner();
+    }
+
+    // ---------- Takip hatırlatmaları (bayi başına bir tane) ----------
+    match /followUps/{dealerId} {
+      allow read: if isActive();
+      allow create, update: if canRegister()
+        && request.resource.data.dealerId == dealerId
+        && request.resource.data.date is string;
+      allow delete: if isOwner();
+    }
+
+    // ---------- Pano ----------
+    match /posts/{postId} {
+      function validText() {
+        return request.resource.data.text is string
+          && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 2000;
+      }
+      allow read: if isActive();
+      allow create: if isActive() && validText()
+        && request.resource.data.byUid == request.auth.uid
+        && request.resource.data.pinned == false
+        && request.resource.data.commentCount == 0;
+      allow update: if isActive() && (
+        // Yazan kendi metnini düzenler
+        (resource.data.byUid == request.auth.uid && validText()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt']))
+        // Sadece sahip sabitler
+        || (isOwner() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pinned', 'pinnedAt']))
+        // Yorum eklenince/silinince sayaç birer birer değişir
+        || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['commentCount'])
+          && (request.resource.data.commentCount - resource.data.get('commentCount', 0)) in [1, -1])
+      );
+      allow delete: if isActive() && (resource.data.byUid == request.auth.uid || isOwner());
+
+      match /comments/{commentId} {
+        function validComment() {
+          return request.resource.data.text is string
+            && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 2000;
+        }
+        allow read: if isActive();
+        allow create: if isActive() && validComment() && request.resource.data.byUid == request.auth.uid;
+        allow update: if isActive() && validComment() && resource.data.byUid == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt']);
+        // Yorumu yazan, yazının sahibi ya da sahip silebilir
+        allow delete: if isActive() && (
+          resource.data.byUid == request.auth.uid || isOwner()
+          || get(/databases/$(database)/documents/posts/$(postId)).data.byUid == request.auth.uid);
+      }
+    }
+
+    // ---------- Customer Data yükleme fotoğrafları (dönemsel devreye alım geçmişi) ----------
+    match /snapshots/{day} {
+      allow read: if isActive();
+      allow write: if isOwner();
+    }
+
+    // ---------- Fotoğraflar ----------
+    match /photos/{photoId} {
+      allow read: if isActive();
+      allow create: if canRegister()
+        && request.resource.data.get('uploadedBy', null) == request.auth.uid
+        && request.resource.data.data is bytes
+        && request.resource.data.data.size() < 900 * 1024;
+      allow update: if false;
+      allow delete: if isOwner();
+    }
+
+    // ---------- Kart önizlemeleri ----------
+    match /thumbs/{regId} {
+      function okThumb(f) {
+        return !(f in request.resource.data)
+          || (request.resource.data[f] is bytes && request.resource.data[f].size() < 150 * 1024);
+      }
+      allow read: if isActive();
+      allow create: if canRegister()
+        && request.resource.data.get('uploadedBy', null) == request.auth.uid
+        && okThumb('exterior') && okThumb('interior');
+      allow update: if (isOwner() || (isRep() && ownsRegData(get(regPath(regId)).data)))
+        && okThumb('exterior') && okThumb('interior');
+      allow delete: if isOwner();
+    }
+
+    // ---------- Temsilci profilleri (isim ve fotoğraf) ----------
+    match /repProfiles/{repKey} {
+      allow read: if isActive();
+      allow write: if isOwner()
+        && (!('photo' in request.resource.data)
+            || (request.resource.data.photo is bytes && request.resource.data.photo.size() < 200 * 1024));
+    }
+
+    // ---------- Yedekleme: tüm notları ve geçmişleri toplu okuma (sadece sahip) ----------
+    match /{path=**}/history/{hid} {
+      allow read: if isOwner();
+    }
+    match /{path=**}/notes/{noteId} {
+      allow read: if isOwner();
+    }
+    match /{path=**}/comments/{commentId} {
+      allow read: if isOwner();
+    }
+
+    // ---------- Yükleme geçmişi ----------
+    match /syncLogs/{logId} {
+      allow read, write: if isOwner();
+    }
+  }
+}

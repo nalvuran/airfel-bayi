@@ -15,6 +15,8 @@ export const FIELD_LABELS = {
   location: 'Konum',
   dealerId: 'Bayi',
   needsReview: 'Kontrol gerekli',
+  brands: 'Sattığı markalar',
+  brandsOther: 'Diğer markalar',
 };
 export const PHOTO_LABELS = {
   exterior: 'Dış cephe', interior: 'Dükkan içi',

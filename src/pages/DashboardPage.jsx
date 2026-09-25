@@ -8,6 +8,9 @@ import { OVERDUE_DAYS, getRegistrations, overdueInstall, waitingInstall } from '
 import { titleCase, useRepProfiles } from '../utils/repProfiles';
 import { useThumbs } from '../utils/thumbs';
 import VisitMap from '../components/VisitMap';
+import { loadRequests } from '../utils/requests';
+import { declineLists } from '../utils/decline';
+import { BRANDS } from '../utils/catalog';
 import { Alert, Avatar, Badge, Card, Empty, PageHeader, Skeleton, fmtNum } from '../components/ui';
 
 const MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
@@ -103,11 +106,21 @@ export default function DashboardPage() {
   const [error, setError] = useState(null);
   const [scope, setScope] = useState('team');
   const [allReps, setAllReps] = useState(false);
+  const [requests, setRequests] = useState(null);
+  const [declineTab, setDeclineTab] = useState('silent');
 
   useEffect(() => {
     getRegistrations(db).then((r) => { setRegs(r.list); setOffline(r.offline); }).catch((e) => setError(e.message));
     getDealerIndex(db).then(setIndex).catch((e) => setError(e.message));
+    loadRequests(db).then(setRequests).catch(() => setRequests([]));
   }, []);
+
+  // Ana sayfadaki "Düşüşteki bayilerin" kartından gelindiyse o bölüme kaydır
+  useEffect(() => {
+    if (window.location.hash === '#dusus' && regs && index) {
+      setTimeout(() => document.getElementById('dusus')?.scrollIntoView({ block: 'start' }), 100);
+    }
+  }, [regs, index]);
 
   const data = useMemo(() => {
     if (!regs || !index) return null;
@@ -163,7 +176,25 @@ export default function DashboardPage() {
       .sort((a, b) => b.q - a.q || ((b.v?.[2] ?? 0) + (b.v?.[3] ?? 0)) - ((a.v?.[2] ?? 0) + (a.v?.[3] ?? 0)))
       .slice(0, 10);
 
+    // Düşüşteki bayiler (kapsamdaki bayiler içinden)
+    const decline = declineLists(scopedDealers);
+
+    // Rakip dağılımı: her bayinin en son marka bilgisi (kayıtlar yeniden eskiye sıralı)
+    const brandSeen = new Set();
+    const brandCounts = {};
+    let brandDealers = 0;
+    const scopedIds = mine ? new Set(scopedDealers.map((e) => e.i)) : null;
+    regs.forEach((r) => {
+      if (!Array.isArray(r.brands) || !r.dealerId || brandSeen.has(r.dealerId)) return;
+      if (scopedIds && !scopedIds.has(r.dealerId)) return;
+      brandSeen.add(r.dealerId);
+      brandDealers++;
+      r.brands.forEach((b) => { brandCounts[b] = (brandCounts[b] || 0) + 1; });
+    });
+    const brandRows = BRANDS.map((b) => ({ b, n: brandCounts[b] || 0 })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n);
+
     return {
+      decline, brandRows, brandDealers,
       month, prevSame, pending, overdue, activeVisited, activeTotal: active.length, points, reps, priority,
       recent: scopedRegs.slice(0, 12), total: scopedRegs.length, dealers,
       attention: regs.filter((r) => r.attention),
@@ -200,6 +231,16 @@ export default function DashboardPage() {
             </Link>
             <Tile label="Ziyaret edilen aktif bayi" value={`%${pct(data.activeVisited, data.activeTotal)}`} sub={`${fmtNum(data.activeVisited)} / ${fmtNum(data.activeTotal)} bayi`} />
             <Tile label="Toplam saha kaydı" value={fmtNum(data.total)} sub={scope === 'mine' ? 'senin kayıtların' : 'tüm ekip'} />
+            {requests && (() => {
+              const open = requests.filter((q) => q.status === 'open' && (scope !== 'mine' || q.createdByUid === user.uid || (myKey && q.createdByRepKey === myKey)));
+              const n = (t) => open.filter((q) => q.type === t).length;
+              return (
+                <Link to={`/requests${scope === 'mine' ? '?mine=1' : ''}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                  <Tile label="Açık talep" value={fmtNum(open.length)} tone={open.length ? 'warn' : undefined}
+                    sub={open.length ? `${n('catalog')} katalog · ${n('training')} eğitim · ${n('service')} servis` : 'açık talep yok'} />
+                </Link>
+              );
+            })()}
           </div>
 
           {data.attention.length > 0 && (
@@ -244,6 +285,51 @@ export default function DashboardPage() {
               )}
             </section>
           )}
+
+          <section id="dusus" className="card mt-16" style={{ scrollMarginTop: 80 }}>
+            <div className="card-header">
+              <div>
+                <h2 className="card-title">Düşüşteki bayiler</h2>
+                <div className="card-desc">
+                  {declineTab === 'silent'
+                    ? 'Geçen mali yıl en az 10 adet devreye alım yapmış, bu mali yıl (1 Nisan\'dan beri) hiç yapmamış aktif bayiler.'
+                    : 'FY25 devreye alımı FY24\'e göre en az %25 düşmüş aktif bayiler (iki tamamlanmış yıl karşılaştırılıyor).'}
+                </div>
+              </div>
+            </div>
+            <div className="row mb-12" style={{ gap: 8 }}>
+              <button className={`pill ${declineTab === 'silent' ? 'active' : ''}`} onClick={() => setDeclineTab('silent')}>Bu yıl sessiz ({data.decline.silent.length})</button>
+              <button className={`pill ${declineTab === 'declined' ? 'active' : ''}`} onClick={() => setDeclineTab('declined')}>Geçen yıl düşenler ({data.decline.declined.length})</button>
+            </div>
+            {(declineTab === 'silent' ? data.decline.silent : data.decline.declined).length === 0 ? (
+              <Empty>Bu listede bayi yok.</Empty>
+            ) : (declineTab === 'silent' ? data.decline.silent : data.decline.declined).slice(0, 10).map((x) => (
+              <Link key={x.e.i} to={`/dealers/${encodeURIComponent(x.e.i)}`} className="list-row" style={{ padding: '10px 0' }}>
+                <div className="row" style={{ flexWrap: 'nowrap', gap: 12 }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div className="list-row-title">{x.e.n}</div>
+                    <div className="list-row-meta">{[x.e.d, x.e.c].filter(Boolean).join(', ')} · {x.e.r}</div>
+                  </div>
+                  <div style={{ textAlign: 'right' }} className="num">
+                    {declineTab === 'silent'
+                      ? <><div style={{ fontWeight: 800 }}>{fmtNum(x.fy25)}</div><div className="text-xs muted">FY25 · FY26: 0</div></>
+                      : <><Badge tone="danger">▼ %{Math.abs(x.pct)}</Badge><div className="text-xs muted" style={{ marginTop: 3 }}>{fmtNum(x.fy24)} → {fmtNum(x.fy25)}</div></>}
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </section>
+
+          <Card title="Rakip marka dağılımı" className="mt-16"
+            desc={data.brandDealers ? `Markası işaretlenmiş ${fmtNum(data.brandDealers)} bayide, her markanın kaç bayide satıldığı.` : 'Temsilciler ziyaretlerde markaları işaretledikçe burada dağılım oluşacak.'}>
+            {data.brandRows.map((x) => (
+              <div key={x.b} className="brand-bar">
+                <span className="brand-name" style={x.b === 'Airfel' ? { color: 'var(--red)' } : undefined}>{x.b}</span>
+                <span className="brand-track"><span style={{ width: `${pct(x.n, data.brandDealers)}%`, background: x.b === 'Airfel' ? 'var(--red)' : 'var(--ink-2)' }} /></span>
+                <span className="brand-num num">{x.n} <span className="muted">· %{pct(x.n, data.brandDealers)}</span></span>
+              </div>
+            ))}
+          </Card>
 
           <Card title="Öncelikli bayiler" desc="FY26 devreye alımı en yüksek olup henüz hiç ziyaret edilmemiş aktif bayiler." className="mt-16" flush>
             {data.priority.length === 0 ? <Empty>Tüm aktif bayiler en az bir kez ziyaret edilmiş.</Empty> : data.priority.map((e, i) => (

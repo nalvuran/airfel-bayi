@@ -6,6 +6,25 @@ import { collection, doc, getDocs, writeBatch } from 'firebase/firestore';
 const COLL = 'dealerIndex';
 const CHUNK_CHARS = 700_000; // Firestore doküman sınırı 1 MB; pay bırakıyoruz
 
+// Bayinin Customer Data'dan gelen bilgilerinin parmak izi: yüklemede sadece değişen bayileri yazmak için
+const HASH_FIELDS = ['platformId', 'sapNo', 'name', 'status', 'department', 'rsgSegment', 'sbuSegment', 'servicesStatus',
+  'currentClass', 'createdDate', 'firstLoginDate', 'sales', 'distributor', 'region', 'city', 'district', 'salesRep',
+  'salesRepKey', 'regionManager'];
+function norm(v) {
+  if (v == null) return null;
+  if (v instanceof Date) return v.toISOString().slice(0, 10);
+  if (typeof v.toDate === 'function') return v.toDate().toISOString().slice(0, 10);
+  if (Array.isArray(v)) return v.map(norm);
+  if (typeof v === 'object') return Object.fromEntries(Object.keys(v).sort().map((k) => [k, norm(v[k])]));
+  return v;
+}
+export function dealerHash(d) {
+  const str = JSON.stringify(HASH_FIELDS.map((k) => norm(d[k])));
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  return (h >>> 0).toString(36);
+}
+
 // Firestore'daki tam bayi verisinden kısa özet üretir
 export function toIndexEntry(id, d) {
   return {
@@ -22,6 +41,7 @@ export function toIndexEntry(id, d) {
     x: d.distributor ?? '',
     // Devreye alım: [kombi24, klima24, kombi25, klima25, kombi26, klima26] (CB = kombi, AC = klima)
     v: ['fy24', 'fy25', 'fy26'].flatMap((y) => [d.sales?.[y]?.cb ?? 0, d.sales?.[y]?.ac ?? 0]),
+    h: dealerHash(d),
   };
 }
 

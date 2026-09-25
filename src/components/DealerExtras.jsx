@@ -6,7 +6,7 @@ import { REQUEST_STATUS, requestSummary } from '../utils/catalog';
 import { addToCalendar, clearFollowUp, fmtDay, followUpState, loadOpenFollowUps, setFollowUp, todayStr } from '../utils/followUps';
 import { closeRequest, createRequest, loadRequests, requestAgeDays, validateRequestDraft } from '../utils/requests';
 import { declineInfo } from '../utils/decline';
-import { RequestDraftEditor, emptyDraft } from './FeatureFields';
+import { RequestDraftEditor, emptyDraft, marketShare } from './FeatureFields';
 import { Photo } from './Photos';
 import { Alert, Badge, Card } from './ui';
 
@@ -101,9 +101,12 @@ export function DealerFollowUp({ dealer }) {
 
 /* ---------- Sattığı markalar (en son ziyaret kaydından) ---------- */
 
-export function DealerBrands({ regs }) {
+export function DealerBrands({ regs, sales }) {
   const last = (regs || []).find((r) => Array.isArray(r.brands));
   if (!regs) return null;
+  const q = last?.brandQty || {};
+  const airfelFy25 = (sales?.fy25?.cb || 0) + (sales?.fy25?.ac || 0);
+  const share = last ? marketShare(airfelFy25, last) : null;
   return (
     <Card title="Sattığı markalar">
       {!last ? (
@@ -112,9 +115,29 @@ export function DealerBrands({ regs }) {
         <>
           <div className="chips" style={{ marginTop: 0 }}>
             {last.brands.length === 0 && !last.brandsOther && <span className="text-sm muted">Listedeki markalardan hiçbiri işaretlenmemiş.</span>}
-            {last.brands.map((b) => <span key={b} className={`chip ${b === 'Airfel' ? 'on' : ''}`} style={{ cursor: 'default' }}>{b}</span>)}
-            {last.brandsOther && <span className="chip" style={{ cursor: 'default' }}>{last.brandsOther}</span>}
+            {last.brands.map((b) => (
+              <span key={b} className={`chip ${b === 'Airfel' ? 'on' : ''}`} style={{ cursor: 'default' }}>
+                {b}{q[b] ? <span className="muted" style={{ fontWeight: 600 }}> · ~{q[b].toLocaleString('tr-TR')}/yıl</span> : null}
+              </span>
+            ))}
+            {last.brandsOther && (
+              <span className="chip" style={{ cursor: 'default' }}>
+                {last.brandsOther}{last.brandsOtherQty ? <span className="muted" style={{ fontWeight: 600 }}> · ~{last.brandsOtherQty.toLocaleString('tr-TR')}/yıl</span> : null}
+              </span>
+            )}
           </div>
+          {share && (
+            <div className="share-box mt-12">
+              <div className="row" style={{ justifyContent: 'space-between' }}>
+                <span style={{ fontWeight: 800 }}>Tahmini pazar payı</span>
+                <span className="num" style={{ fontWeight: 800, fontSize: 18, color: 'var(--red)' }}>%{share.pct}</span>
+              </div>
+              <div className="progress mt-8"><span style={{ width: `${share.pct}%` }} /></div>
+              <div className="text-xs muted mt-8" style={{ fontWeight: 600 }}>
+                Airfel FY25 devreye alım: {share.airfel.toLocaleString('tr-TR')} adet · Rakiplerin yıllık tahmini: ~{share.rival.toLocaleString('tr-TR')} adet
+              </div>
+            </div>
+          )}
           <div className="text-xs muted mt-8" style={{ fontWeight: 600 }}>
             {fmtDate(last.date || last.createdAt)} tarihli ziyaretten · {last.salesRep}. Değişiklikler ziyaret kaydından yapılır.
           </div>

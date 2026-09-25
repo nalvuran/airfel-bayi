@@ -15,17 +15,69 @@ export function Chip({ on, onClick, children, disabled }) {
 
 /* ---------- Rakip markalar ---------- */
 
-export function BrandPicker({ value = [], other = '', onChange, disabled }) {
-  const toggle = (b) => onChange({ brands: value.includes(b) ? value.filter((x) => x !== b) : [...value, b], other });
+// value: seçili markalar, other: listede olmayanlar (metin), qty: { marka: yıllık adet }, otherQty: diğerlerinin adedi
+export function BrandPicker({ value = [], other = '', qty = {}, otherQty = null, onChange, disabled }) {
+  const emit = (patch) => onChange({ brands: value, other, qty, otherQty, ...patch });
+  const toggle = (b) => {
+    const on = value.includes(b);
+    const nextQty = { ...qty };
+    if (on) delete nextQty[b];
+    emit({ brands: on ? value.filter((x) => x !== b) : [...value, b], qty: nextQty });
+  };
+  const num = (v) => { const n = parseInt(String(v).replace(/\D/g, ''), 10); return Number.isFinite(n) && n > 0 ? Math.min(n, 999999) : null; };
+  const rivals = value.filter((b) => b !== 'Airfel');
   return (
     <div>
       <div className="chips">
         {BRANDS.map((b) => <Chip key={b} on={value.includes(b)} onClick={() => toggle(b)} disabled={disabled}>{b}</Chip>)}
       </div>
       <input className="input mt-8" value={other} disabled={disabled} maxLength={120}
-        onChange={(e) => onChange({ brands: value, other: e.target.value })} placeholder="Listede olmayan markalar (isteğe bağlı)" />
+        onChange={(e) => emit({ other: e.target.value, ...(e.target.value.trim() ? {} : { otherQty: null }) })} placeholder="Listede olmayan markalar (isteğe bağlı)" />
+      {(rivals.length > 0 || other.trim()) && (
+        <div className="qty-box mt-12">
+          <div className="label-sm">Yıllık yaklaşık satış adedi (isteğe bağlı)</div>
+          {rivals.map((b) => (
+            <label key={b} className="qty-row">
+              <span>{b}</span>
+              <input className="input" type="text" inputMode="numeric" disabled={disabled} placeholder="adet"
+                value={qty[b] ?? ''} onChange={(e) => emit({ qty: { ...qty, [b]: num(e.target.value) } })} />
+            </label>
+          ))}
+          {other.trim() && (
+            <label className="qty-row">
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{other.trim()}</span>
+              <input className="input" type="text" inputMode="numeric" disabled={disabled} placeholder="adet"
+                value={otherQty ?? ''} onChange={(e) => emit({ otherQty: num(e.target.value) })} />
+            </label>
+          )}
+        </div>
+      )}
     </div>
   );
+}
+
+// Formdaki marka durumunu kayda yazılacak alanlara çevirir (boş adetler atılır)
+export function brandFields(b) {
+  const qty = {};
+  (b.brands || []).forEach((x) => { if (x !== 'Airfel' && b.qty?.[x]) qty[x] = b.qty[x]; });
+  return {
+    brands: b.brands || [],
+    brandsOther: (b.other || '').trim() || null,
+    brandQty: qty,
+    brandsOtherQty: (b.other || '').trim() && b.otherQty ? b.otherQty : null,
+  };
+}
+// Kayıttan formdaki marka durumuna
+export const brandStateFromReg = (r) => ({
+  brands: r?.brands || [], other: r?.brandsOther || '', qty: r?.brandQty || {}, otherQty: r?.brandsOtherQty ?? null,
+});
+
+// Tahmini pazar payı: Airfel'in son tamamlanan yıl (FY25) devreye alımı / (Airfel + rakiplerin yıllık tahmini)
+export function marketShare(airfelQty, reg) {
+  const rival = Object.values(reg?.brandQty || {}).reduce((a, n) => a + (n || 0), 0) + (reg?.brandsOtherQty || 0);
+  if (!rival) return null;
+  const total = airfelQty + rival;
+  return { airfel: airfelQty, rival, pct: total ? Math.round((airfelQty / total) * 100) : 0 };
 }
 
 /* ---------- Talep taslağı ---------- */

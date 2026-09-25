@@ -59,7 +59,11 @@ export function exportRegistrations(regs, dealers) {
       'Tabela talebi': yn(r.signRequest),
       'Stant talebi': yn(r.standRequest),
       'Kurulum durumu': installStatus(r),
-      'Sattığı markalar': [...(r.brands || []), ...(r.brandsOther ? [r.brandsOther] : [])].join(', '),
+      'Sattığı markalar': [
+        ...(r.brands || []).map((b) => (r.brandQty?.[b] ? `${b} (~${r.brandQty[b]})` : b)),
+        ...(r.brandsOther ? [r.brandsOtherQty ? `${r.brandsOther} (~${r.brandsOtherQty})` : r.brandsOther] : []),
+      ].join(', '),
+      'Rakiplerin yıllık tahmini (toplam)': (Object.values(r.brandQty || {}).reduce((a, n) => a + (n || 0), 0) + (r.brandsOtherQty || 0)) || '',
       'Tekrar uğra': r.followUpDate ? r.followUpDate.split('-').reverse().join('.') : '',
       'Konum': mapsLink(r),
       ...devreye(d?.v),

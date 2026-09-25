@@ -17,6 +17,8 @@ export const FIELD_LABELS = {
   needsReview: 'Kontrol gerekli',
   brands: 'Sattığı markalar',
   brandsOther: 'Diğer markalar',
+  brandQty: 'Rakip yıllık adetleri',
+  brandsOtherQty: 'Diğer markaların yıllık adedi',
 };
 export const PHOTO_LABELS = {
   exterior: 'Dış cephe', interior: 'Dükkan içi',

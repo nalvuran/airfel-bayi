@@ -174,7 +174,7 @@ export default function DealerDetailPage() {
 
       <DealerFollowUp dealer={{ i: id, n: dealer.name }} />
       <DealerRequests dealer={{ i: id, n: dealer.name }} dealerRepKey={dealer.salesRepKey} onOpenPhoto={setLightbox} />
-      <DealerBrands regs={regs} />
+      <DealerBrands regs={regs} sales={dealer.sales} />
 
       <DealerNotes dealerId={id} />
 

@@ -74,7 +74,7 @@ service cloud.firestore {
       // Temsilcinin değiştirebileceği alanlar
       function repEditableOnly() {
         return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'contactName', 'phone', 'email', 'signRequest', 'standRequest', 'brands', 'brandsOther',
+          'contactName', 'phone', 'email', 'signRequest', 'standRequest', 'brands', 'brandsOther', 'brandQty', 'brandsOtherQty',
           'location', 'locationSource', 'locationAccuracy', 'mapsUrl',
           'photoFiles', 'thumbs', 'afterPhotosAt', 'attention', 'attentionAt',
           'editedAt', 'editedByUid', 'editedByName', 'editCount', 'lastHistoryId', 'syncAt'

@@ -8,7 +8,7 @@ import {
 } from '../utils/registrationEdit';
 import { clearThumbCache } from '../utils/thumbs';
 import { DealerPicker, LocationInput, PhoneInput, YesNo, phoneRest } from './FormFields';
-import { BrandPicker } from './FeatureFields';
+import { BrandPicker, brandFields, brandStateFromReg } from './FeatureFields';
 import PhotoInput from './PhotoInput';
 import { Photo } from './Photos';
 import { Alert, Badge } from './ui';
@@ -17,7 +17,10 @@ const fmtDateTime = (v) => {
   const d = v?.toDate ? v.toDate() : v instanceof Date ? v : null;
   return d ? d.toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';
 };
-const show = (v) => (v === true ? 'Evet' : v === false ? 'Hayır' : Array.isArray(v) ? (v.length ? v.join(', ') : '(boş)') : v == null || v === '' ? '(boş)' : String(v));
+const show = (v) => (v === true ? 'Evet' : v === false ? 'Hayır'
+  : Array.isArray(v) ? (v.length ? v.join(', ') : '(boş)')
+    : v && typeof v === 'object' ? (Object.keys(v).length ? Object.entries(v).map(([k, n]) => `${k}: ${n}`).join(', ') : '(boş)')
+      : v == null || v === '' ? '(boş)' : String(v));
 const errMsg = (e) => (e.code === 'permission-denied' ? 'Bu işlem için iznin yok.' : e.message);
 
 /* ---------- Düzenleme paneli ---------- */
@@ -33,7 +36,7 @@ export function EditRegistration({ r, onDone, onCancel }) {
     standRequest: r.standRequest ?? null,
   });
   const [loc, setLoc] = useState(null);
-  const [brands, setBrands] = useState({ brands: r.brands || [], other: r.brandsOther || '' });
+  const [brands, setBrands] = useState(brandStateFromReg(r));
   const [photos, setPhotos] = useState({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -58,9 +61,12 @@ export function EditRegistration({ r, onDone, onCancel }) {
     if (f.signRequest !== (r.signRequest ?? null)) changes.signRequest = f.signRequest;
     if (f.standRequest !== (r.standRequest ?? null)) changes.standRequest = f.standRequest;
     if (loc) changes.location = loc;
-    const sameBrands = [...(r.brands || [])].sort().join('|') === [...brands.brands].sort().join('|');
-    if (!sameBrands) changes.brands = brands.brands;
-    if ((brands.other.trim() || null) !== (r.brandsOther || null)) changes.brandsOther = brands.other.trim() || null;
+    const bf = brandFields(brands);
+    const key = (o) => JSON.stringify(Object.keys(o || {}).sort().map((k) => [k, o[k]]));
+    if ([...(r.brands || [])].sort().join('|') !== [...bf.brands].sort().join('|')) changes.brands = bf.brands;
+    if (bf.brandsOther !== (r.brandsOther || null)) changes.brandsOther = bf.brandsOther;
+    if (key(bf.brandQty) !== key(r.brandQty)) changes.brandQty = bf.brandQty;
+    if (bf.brandsOtherQty !== (r.brandsOtherQty ?? null)) changes.brandsOtherQty = bf.brandsOtherQty;
 
     const chosen = Object.fromEntries(Object.entries(photos).filter(([, p]) => p));
     if (!Object.keys(changes).length && !Object.keys(chosen).length) { setError('Değişiklik yapmadın.'); return; }
@@ -96,7 +102,7 @@ export function EditRegistration({ r, onDone, onCancel }) {
         </div>
         <div>
           <span className="label">Bayide hangi markalar var?</span>
-          <BrandPicker value={brands.brands} other={brands.other} onChange={setBrands} disabled={saving} />
+          <BrandPicker value={brands.brands} other={brands.other} qty={brands.qty} otherQty={brands.otherQty} onChange={setBrands} disabled={saving} />
         </div>
         <div>
           <span className="label">Konum</span>

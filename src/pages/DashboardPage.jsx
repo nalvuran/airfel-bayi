@@ -182,7 +182,9 @@ export default function DashboardPage() {
     // Rakip dağılımı: her bayinin en son marka bilgisi (kayıtlar yeniden eskiye sıralı)
     const brandSeen = new Set();
     const brandCounts = {};
+    const brandQty = {};
     let brandDealers = 0;
+    let shareAirfel = 0; let shareRival = 0; let shareDealers = 0;
     const scopedIds = mine ? new Set(scopedDealers.map((e) => e.i)) : null;
     regs.forEach((r) => {
       if (!Array.isArray(r.brands) || !r.dealerId || brandSeen.has(r.dealerId)) return;
@@ -190,11 +192,21 @@ export default function DashboardPage() {
       brandSeen.add(r.dealerId);
       brandDealers++;
       r.brands.forEach((b) => { brandCounts[b] = (brandCounts[b] || 0) + 1; });
+      // Adet girilmiş bayilerde: rakiplerin yıllık tahmini ve Airfel'in FY25 devreye alımı
+      const rival = Object.values(r.brandQty || {}).reduce((a, n) => a + (n || 0), 0) + (r.brandsOtherQty || 0);
+      if (rival > 0) {
+        const e = dealers.get(r.dealerId);
+        shareAirfel += e?.v ? (e.v[2] || 0) + (e.v[3] || 0) : 0;
+        shareRival += rival;
+        shareDealers++;
+        Object.entries(r.brandQty || {}).forEach(([b, n]) => { brandQty[b] = (brandQty[b] || 0) + (n || 0); });
+      }
     });
-    const brandRows = BRANDS.map((b) => ({ b, n: brandCounts[b] || 0 })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n);
+    const brandRows = BRANDS.map((b) => ({ b, n: brandCounts[b] || 0, q: brandQty[b] || 0 })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n);
+    const share = shareDealers ? { dealers: shareDealers, airfel: shareAirfel, rival: shareRival, pct: pct(shareAirfel, shareAirfel + shareRival) } : null;
 
     return {
-      decline, brandRows, brandDealers,
+      decline, brandRows, brandDealers, share,
       month, prevSame, pending, overdue, activeVisited, activeTotal: active.length, points, reps, priority,
       recent: scopedRegs.slice(0, 12), total: scopedRegs.length, dealers,
       attention: regs.filter((r) => r.attention),
@@ -322,11 +334,23 @@ export default function DashboardPage() {
 
           <Card title="Rakip marka dağılımı" className="mt-16"
             desc={data.brandDealers ? `Markası işaretlenmiş ${fmtNum(data.brandDealers)} bayide, her markanın kaç bayide satıldığı.` : 'Temsilciler ziyaretlerde markaları işaretledikçe burada dağılım oluşacak.'}>
+            {data.share && (
+              <div className="share-box mb-16">
+                <div className="row" style={{ justifyContent: 'space-between' }}>
+                  <span style={{ fontWeight: 800 }}>Tahmini pazar payımız</span>
+                  <span className="num" style={{ fontWeight: 800, fontSize: 22, color: 'var(--red)' }}>%{data.share.pct}</span>
+                </div>
+                <div className="progress mt-8"><span style={{ width: `${data.share.pct}%` }} /></div>
+                <div className="text-xs muted mt-8" style={{ fontWeight: 600 }}>
+                  Rakip adedi girilmiş {fmtNum(data.share.dealers)} bayide: Airfel FY25 devreye alım {fmtNum(data.share.airfel)} adet, rakiplerin yıllık tahmini ~{fmtNum(data.share.rival)} adet.
+                </div>
+              </div>
+            )}
             {data.brandRows.map((x) => (
               <div key={x.b} className="brand-bar">
                 <span className="brand-name" style={x.b === 'Airfel' ? { color: 'var(--red)' } : undefined}>{x.b}</span>
                 <span className="brand-track"><span style={{ width: `${pct(x.n, data.brandDealers)}%`, background: x.b === 'Airfel' ? 'var(--red)' : 'var(--ink-2)' }} /></span>
-                <span className="brand-num num">{x.n} <span className="muted">· %{pct(x.n, data.brandDealers)}</span></span>
+                <span className="brand-num num">{x.n} <span className="muted">· %{pct(x.n, data.brandDealers)}</span>{x.q ? <span className="brand-q">~{fmtNum(x.q)}/yıl</span> : null}</span>
               </div>
             ))}
           </Card>

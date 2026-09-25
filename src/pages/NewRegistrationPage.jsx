@@ -7,7 +7,7 @@ import { getDealerIndex } from '../utils/dealerIndex';
 import { DealerPicker, LocationInput, PhoneInput, Req, YesNo } from '../components/FormFields';
 import { createRegistration } from '../utils/registrations';
 import PhotoInput from '../components/PhotoInput';
-import { BrandPicker, FollowUpField, RequestDraftEditor, emptyDraft } from '../components/FeatureFields';
+import { BrandPicker, FollowUpField, RequestDraftEditor, brandFields, brandStateFromReg, emptyDraft } from '../components/FeatureFields';
 import { getRegistrations } from '../utils/registrationStore';
 import { loadOpenFollowUps } from '../utils/followUps';
 import { validateRequestDraft } from '../utils/requests';
@@ -28,7 +28,7 @@ export default function NewRegistrationPage() {
   const [f, setF] = useState({ contactName: '', phone: '', email: '', signRequest: null, standRequest: null });
   const [loc, setLoc] = useState(null);
   const [photos, setPhotos] = useState({ exterior: null, interior: null });
-  const [brands, setBrands] = useState({ brands: [], other: '' });
+  const [brands, setBrands] = useState(brandStateFromReg(null));
   const [brandsFrom, setBrandsFrom] = useState(null); // bayinin son kaydının tarihi (hazır gelen markalar için)
   const [drafts, setDrafts] = useState([]);
   const [followUp, setFollowUp] = useState(null);
@@ -44,12 +44,12 @@ export default function NewRegistrationPage() {
   const set = (k) => (v) => setF((x) => ({ ...x, [k]: v }));
   const pickDealer = (e) => {
     setDealer(e);
-    setBrands({ brands: [], other: '' }); setBrandsFrom(null); setOpenFollowUp(null);
+    setBrands(brandStateFromReg(null)); setBrandsFrom(null); setOpenFollowUp(null);
     if (!e) return;
     // Markalar bayinin son kaydından hazır gelsin; temsilci sadece değişeni düzeltsin
     getRegistrations(db).then(({ list }) => {
       const last = list.find((r) => r.dealerId === e.i && Array.isArray(r.brands));
-      if (last) { setBrands({ brands: last.brands, other: last.brandsOther || '' }); setBrandsFrom(last.date); }
+      if (last) { setBrands(brandStateFromReg(last)); setBrandsFrom(last.date); }
     }).catch(() => {});
     loadOpenFollowUps(db).then((l) => setOpenFollowUp(l.find((f) => f.dealerId === e.i) || null)).catch(() => {});
   };
@@ -102,8 +102,7 @@ export default function NewRegistrationPage() {
           locationSource: loc.locationSource,
           locationAccuracy: loc.locationAccuracy,
           mapsUrl: loc.mapsUrl,
-          brands: brands.brands,
-          brandsOther: brands.other.trim() || null,
+          ...brandFields(brands),
           followUpDate: followUp || null,
         },
       });
@@ -170,7 +169,7 @@ export default function NewRegistrationPage() {
 
       <Card title="Bayide hangi markalar var?"
         desc={brandsFrom ? `Bayinin ${brandsFrom.toLocaleDateString('tr-TR')} tarihli kaydından hazır geldi; değişen varsa düzelt.` : 'Bayinin sattığı markaları işaretle.'}>
-        <BrandPicker value={brands.brands} other={brands.other} onChange={setBrands} disabled={saving} />
+        <BrandPicker value={brands.brands} other={brands.other} qty={brands.qty} otherQty={brands.otherQty} onChange={setBrands} disabled={saving} />
       </Card>
 
       <Card title="Bayinin talebi var mı?" desc="Katalog, eğitim, servis sorunu ya da başka bir talep. Yoksa boş bırak.">

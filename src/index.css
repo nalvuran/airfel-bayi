@@ -613,3 +613,9 @@ a.rc-title:hover { color: var(--red); }
 .preview-group > summary::before { content: '▸ '; color: var(--muted); }
 .preview-group[open] > summary::before { content: '▾ '; }
 .preview-group ul { margin: 8px 0 4px; padding-left: 18px; font-size: 13px; display: grid; gap: 3px; max-height: 320px; overflow: auto; }
+
+/* Telefon alanı: sabit "05" ile yazılan numara tek parça gibi görünsün */
+.phone-field { display: flex; align-items: stretch; border: 1.5px solid var(--border); border-radius: 8px; background: var(--surface); overflow: hidden; transition: border-color .15s; }
+.phone-field:focus-within { border-color: var(--focus); }
+.phone-prefix { display: flex; align-items: center; padding-left: 14px; font-family: inherit; font-size: 16px; font-weight: 400; color: var(--ink); user-select: none; font-variant-numeric: tabular-nums; }
+.phone-field .input { font-variant-numeric: tabular-nums; }

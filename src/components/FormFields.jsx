@@ -79,8 +79,9 @@ export const fmtPhoneRest = (d) => [d.slice(0, 2), d.slice(2, 5), d.slice(5, 7),
 
 export function PhoneInput({ value, onChange }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'stretch', border: '1.5px solid var(--border)', borderRadius: 8, background: 'var(--surface)', overflow: 'hidden' }}>
-      <span style={{ display: 'flex', alignItems: 'center', padding: '0 4px 0 14px', fontSize: 16, fontWeight: 800, userSelect: 'none' }}>05</span>
+    // "05" sabit; yazılanla aynı yazı tipi ve renkte, arada boşluk olmadan: 0546 646 54 52
+    <div className="phone-field">
+      <span className="phone-prefix" aria-hidden="true">05</span>
       <input
         type="tel" inputMode="numeric" autoComplete="off" className="input input-lg"
         value={fmtPhoneRest(value)}
@@ -91,7 +92,8 @@ export function PhoneInput({ value, onChange }) {
           onChange(d.slice(0, 9));
         }}
         placeholder="XX XXX XX XX"
-        style={{ border: 'none', borderRadius: 0, paddingLeft: 2 }}
+        aria-label="Telefon (05 ile başlar)"
+        style={{ border: 'none', borderRadius: 0, paddingLeft: 0, background: 'transparent' }}
       />
     </div>
   );

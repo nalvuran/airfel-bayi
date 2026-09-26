@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { APP_NAME, APP_VERSION } from '../utils/version';
 import { Alert } from '../components/ui';
 
 export default function Login() {
@@ -31,7 +32,10 @@ export default function Login() {
           <img className="logo-light" src="/logo-full.png" alt="airfel — Daima senden yana" style={{ width: 190, maxWidth: '70%', height: 'auto' }} />
           <img className="logo-dark" src="/logo-full-dark.png" alt="airfel — Daima senden yana" style={{ width: 190, maxWidth: '70%', height: 'auto' }} />
         </div>
-        <h1 style={{ fontSize: 20, textAlign: 'center', marginBottom: 24 }}>Bayi Takip Sistemi</h1>
+        <div style={{ textAlign: 'center', marginBottom: 24 }}>
+          <h1 className="app-name" style={{ fontSize: 26, margin: 0 }}>{APP_NAME} <span className="app-ver">V{APP_VERSION}</span></h1>
+          <div className="muted" style={{ fontSize: 14, fontWeight: 600, marginTop: 2 }}>Bayi takip sistemi</div>
+        </div>
 
         <form onSubmit={handleLogin} className="stack" style={{ gap: 16 }}>
           <div>

@@ -812,3 +812,12 @@ a.rc-title:hover { color: var(--red); }
   .hcard-head { padding: 16px 16px 0; }
   .hcard-body { padding: 12px 16px 16px; }
 }
+
+/* Uygulama adı: Segment */
+.app-name { font-weight: 800; letter-spacing: -0.02em; color: var(--ink); }
+.app-ver { font-size: 12px; font-weight: 800; color: var(--red); background: var(--red-soft); padding: 2px 8px; border-radius: 10px; vertical-align: middle; letter-spacing: 0; }
+.app-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+.head-app { font-size: 17px; padding-left: 10px; border-left: 1.5px solid var(--border-strong); line-height: 1.2; }
+.sidebar-logo { display: flex !important; align-items: center; gap: 10px; text-decoration: none; }
+.side-app { font-size: 18px; padding-left: 10px; border-left: 1.5px solid var(--border-strong); line-height: 1.2; }
+.side-version { font-size: 11.5px; font-weight: 700; color: var(--faint); padding: 8px 8px 0; }

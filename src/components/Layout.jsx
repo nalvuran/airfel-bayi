@@ -10,6 +10,7 @@ import { useNavCounts } from '../utils/navCounts';
 import { useRepProfiles } from '../utils/repProfiles';
 import { db } from '../firebase';
 import { Avatar } from './ui';
+import { APP_FULL, APP_NAME } from '../utils/version';
 
 /* ---------- Simgeler ---------- */
 const Icon = ({ children }) => (
@@ -123,9 +124,10 @@ export default function Layout({ children }) {
     <div className="shell">
       {/* Bilgisayar: sol menü */}
       <aside className="sidebar" aria-label="Ana menü">
-        <Link to="/" className="sidebar-logo" aria-label="Ana sayfa">
+        <Link to="/" className="sidebar-logo" aria-label={`${APP_NAME} ana sayfa`}>
           <img className="logo-light" src="/logo.png" alt="airfel" />
           <img className="logo-dark" src="/logo-dark.png" alt="airfel" />
+          <span className="app-name side-app">{APP_NAME}</span>
         </Link>
         <nav className="side-nav">
           {links.map(navItem)}
@@ -140,15 +142,17 @@ export default function Layout({ children }) {
           </div>
           <button className="icon-btn" onClick={handleLogout} aria-label="Çıkış yap" title="Çıkış yap"><LogoutIcon /></button>
         </div>
+        <div className="side-version">{APP_FULL}</div>
       </aside>
 
       <div className="shell-main">
         {/* Telefon ve tablet: üst çubuk */}
         <header className="app-header">
           <div className="app-header-inner">
-            <Link to="/" className="app-logo" aria-label="Ana sayfa">
+            <Link to="/" className="app-logo" aria-label={`${APP_NAME} ana sayfa`}>
               <img className="logo-light" src="/logo.png" alt="airfel" />
               <img className="logo-dark" src="/logo-dark.png" alt="airfel" />
+              <span className="app-name head-app">{APP_NAME}</span>
             </Link>
             <nav className="top-nav" aria-label="Ana menü">
               {[...links, ...adminLinks].map((l) => <NavLink key={l.to} to={l.to} end={l.end}>{l.short || l.label}</NavLink>)}

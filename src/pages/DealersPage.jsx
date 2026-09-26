@@ -1,5 +1,6 @@
 // src/pages/DealersPage.jsx
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import { db } from '../firebase';
 import { getDealerIndex, getCachedDealerIndex, fold } from '../utils/dealerIndex';
@@ -13,19 +14,23 @@ const PAGE = 100;
 const trSort = (a, b) => a.localeCompare(b, 'tr');
 
 export default function DealersPage() {
-  const sc = useScope({ rep: 'mine', owner: 'mine', regionManager: 'team', deptManager: 'all' });
+  const [params] = useSearchParams();
+  const sc = useScope({ rep: 'mine', owner: 'mine', regionManager: 'team', deptManager: 'all' }, params.get('scope'));
 
   const [data, setData] = useState(getCachedDealerIndex());
   const [error, setError] = useState(null);
 
-  const [q, setQ] = useState('');
+  const [q, setQ] = useState(params.get('q') || '');
   const [city, setCity] = useState('');
-  const [rep, setRep] = useState('');
-  const [status, setStatus] = useState('');
+  const [rep, setRep] = useState(params.get('rep') || '');
+  const [status, setStatus] = useState(params.get('status') || '');
+  // Ziyaret durumu: '' | 'unvisited' | 'visited' (kayıtlardan hesaplanır, gerektiğinde yüklenir)
+  const [visit, setVisit] = useState(params.get('visit') || '');
+  const [visited, setVisited] = useState(null);
   const [segment, setSegment] = useState('');
   const [sort, setSort] = useState('sales');
   const [limit, setLimit] = useState(PAGE);
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(!!(params.get('visit') || params.get('rep') || params.get('status')));
   const [exporting, setExporting] = useState(false);
 
   const onExport = async () => {
@@ -40,7 +45,13 @@ export default function DealersPage() {
     getDealerIndex(db).then(setData).catch((e) => setError(e.message));
   }, []);
 
-  useEffect(() => { setLimit(PAGE); }, [q, sc.scope, city, rep, status, segment, sort]);
+  useEffect(() => { setLimit(PAGE); }, [q, sc.scope, city, rep, status, segment, sort, visit]);
+  // Üst çubuktaki aramadan yeni bir kelime gelince
+  useEffect(() => { if (params.get('q') !== null) setQ(params.get('q')); }, [params]);
+  useEffect(() => {
+    if (!visit || visited) return;
+    getRegistrations(db).then(({ list }) => setVisited(new Set(list.map((r) => r.dealerId).filter(Boolean)))).catch(() => setVisited(new Set()));
+  }, [visit, visited]);
 
   const options = useMemo(() => {
     const e = data?.entries ?? [];
@@ -57,13 +68,14 @@ export default function DealersPage() {
       (!rep || e.k === rep) &&
       (!status || e.s === status) &&
       (!segment || e.g === segment) &&
+      (!visit || !visited || (visit === 'unvisited' ? !visited.has(e.i) : visited.has(e.i))) &&
       words.every((w) => e.search.includes(w)));
     return list.sort(sort === 'name' ? (a, b) => trSort(a.n, b.n) : (a, b) => b.q - a.q || trSort(a.n, b.n));
-  }, [data, q, sc.scope, sc.repKeys, city, rep, status, segment, sort]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [data, q, sc.scope, sc.repKeys, city, rep, status, segment, sort, visit, visited]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const anyFilter = q || city || rep || status || segment;
-  const activeFilters = [city, rep, status, segment].filter(Boolean).length + (sort !== 'sales' ? 1 : 0);
-  const clearAll = () => { setQ(''); setCity(''); setRep(''); setStatus(''); setSegment(''); };
+  const anyFilter = q || city || rep || status || segment || visit;
+  const activeFilters = [city, rep, status, segment, visit].filter(Boolean).length + (sort !== 'sales' ? 1 : 0);
+  const clearAll = () => { setQ(''); setCity(''); setRep(''); setStatus(''); setSegment(''); setVisit(''); };
 
   if (error) return <div className="page"><Alert tone="danger">{error}</Alert></div>;
 
@@ -112,6 +124,11 @@ export default function DealersPage() {
           <select className="select" value={segment} onChange={(e) => setSegment(e.target.value)}>
             <option value="">Tüm segmentler</option>
             {options.segments.map((x) => <option key={x}>{x}</option>)}
+          </select>
+          <select className="select" value={visit} onChange={(e) => setVisit(e.target.value)}>
+            <option value="">Ziyaret durumu: tümü</option>
+            <option value="unvisited">Hiç ziyaret edilmemiş</option>
+            <option value="visited">En az bir kez ziyaret edilmiş</option>
           </select>
           <select className="select" value={sort} onChange={(e) => setSort(e.target.value)}>
             <option value="sales">FY26 devreye alıma göre</option>

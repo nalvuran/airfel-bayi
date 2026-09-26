@@ -1,6 +1,6 @@
 // src/pages/DashboardPage.jsx
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { db } from '../firebase';
 import { getDealerIndex } from '../utils/dealerIndex';
 import { OVERDUE_DAYS, getRegistrations, overdueInstall, waitingInstall } from '../utils/registrationStore';
@@ -13,6 +13,7 @@ import { BRANDS } from '../utils/catalog';
 import { useScope } from '../utils/scope';
 import { useTeam } from '../utils/team';
 import ScopePicker from '../components/ScopePicker';
+import { CoverageChart, InstallDonut, ShareGauge, VisitTrendChart } from '../components/DashCharts';
 import { Alert, Avatar, Badge, Card, Empty, PageHeader, Skeleton, fmtNum } from '../components/ui';
 
 const MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
@@ -21,14 +22,18 @@ const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
 
 /* ---------- Rakam kutusu ---------- */
 
-function Tile({ label, value, sub, tone }) {
-  return (
-    <div className={`stat ${tone ? `stat-${tone}` : ''}`}>
+function Tile({ label, value, sub, tone, to }) {
+  const body = (
+    <>
       <div className="stat-value">{value}</div>
       <div className="stat-label">{label}</div>
       {sub && <div className="text-xs muted" style={{ marginTop: 6, fontWeight: 600 }}>{sub}</div>}
-    </div>
+      {to && <span className="stat-go" aria-hidden="true">›</span>}
+    </>
   );
+  return to
+    ? <Link to={to} className={`stat stat-link ${tone ? `stat-${tone}` : ''}`}>{body}</Link>
+    : <div className={`stat ${tone ? `stat-${tone}` : ''}`}>{body}</div>;
 }
 
 function Trend({ now, before }) {
@@ -110,6 +115,7 @@ export default function DashboardPage() {
   const [allReps, setAllReps] = useState(false);
   const [requests, setRequests] = useState(null);
   const [declineTab, setDeclineTab] = useState('silent');
+  const navigate = useNavigate();
 
   useEffect(() => {
     getRegistrations(db).then((r) => { setRegs(r.list); setOffline(r.offline); }).catch((e) => setError(e.message));
@@ -208,7 +214,40 @@ export default function DashboardPage() {
     const brandRows = BRANDS.map((b) => ({ b, n: brandCounts[b] || 0, q: brandQty[b] || 0 })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n);
     const share = shareDealers ? { dealers: shareDealers, airfel: shareAirfel, rival: shareRival, pct: pct(shareAirfel, shareAirfel + shareRival) } : null;
 
+    // Son 12 haftanın ziyaretleri (pazartesi başlangıçlı); "Tümü"nde bölge ekiplerine göre
+    const SHORT = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
+    const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const monday = new Date(now); monday.setHours(0, 0, 0, 0); monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+    const splitTeams = scope === 'all' && team.managers.length > 0;
+    const teamOf = (r) => team.byKey[r.salesRepKey]?.managerKey || 'diger';
+    const weeks = Array.from({ length: 12 }, (_, i) => {
+      const from = new Date(monday); from.setDate(from.getDate() - 7 * (11 - i));
+      const to = new Date(from); to.setDate(to.getDate() + 6); to.setHours(23, 59, 59, 999);
+      const inWeek = scopedRegs.filter((r) => r.date && r.date >= from && r.date <= to);
+      const byTeam = {};
+      if (splitTeams) inWeek.forEach((r) => { const k = teamOf(r); byTeam[k] = (byTeam[k] || 0) + 1; });
+      return {
+        label: `${from.getDate()} ${SHORT[from.getMonth()]}`,
+        title: `${from.getDate()} ${SHORT[from.getMonth()]} – ${to.getDate()} ${SHORT[to.getMonth()]}`,
+        from: iso(from), to: iso(to), total: inWeek.length, byTeam,
+      };
+    });
+    const trendTeams = splitTeams
+      ? [...team.managers.map((m) => ({ key: m.key, name: m.name })), ...(weeks.some((w) => w.byTeam.diger) ? [{ key: 'diger', name: 'Ekip dışı' }] : [])]
+      : [];
+
+    // Kurulum durumu
+    const hasAfter = (r) => r.photoFiles?.exteriorAfter || r.photoFiles?.interiorAfter || r.photos?.exteriorAfter || r.photos?.interiorAfter;
+    const installed = scopedRegs.filter((r) => (r.signRequest === true || r.standRequest === true) && hasAfter(r)).length;
+
+    // Kapsama: temsilci başına ziyaret edilen aktif bayi oranı, müdür ekibinin rengiyle
+    const mgrIndex = Object.fromEntries(team.managers.map((m, i) => [m.key, i]));
+    const coverage = reps.filter((r) => r.active > 0)
+      .map((r) => ({ key: r.key, name: r.name, pct: pct(r.visited, r.active), visited: r.visited, active: r.active, team: mgrIndex[r.managerKey] }))
+      .sort((a, b) => b.pct - a.pct);
+
     return {
+      weeks, trendTeams, installed, coverage,
       decline, brandRows, brandDealers, share,
       month, prevSame, pending, overdue, activeVisited, activeTotal: active.length, points, reps, priority,
       recent: scopedRegs.slice(0, 12), total: scopedRegs.length, dealers,
@@ -234,23 +273,75 @@ export default function DashboardPage() {
       ) : (
         <>
           <div className="stat-grid">
-            <Tile label="Bu ay ziyaret" value={fmtNum(data.month)} sub={<Trend now={data.month} before={data.prevSame} />} />
-            <Tile label="Kurulum bekleyen" value={fmtNum(data.pending)} tone={data.pending ? 'warn' : undefined} sub="tabela / stant talebi" />
-            <Link to={`/registrations?special=overdue&scope=${scope}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-              <Tile label={`${OVERDUE_DAYS} günü geçen kurulum`} value={fmtNum(data.overdue)} tone={data.overdue ? 'danger' : 'success'} sub={data.overdue ? 'listeyi görmek için dokun' : 'gecikmiş kurulum yok'} />
-            </Link>
-            <Tile label="Ziyaret edilen aktif bayi" value={`%${pct(data.activeVisited, data.activeTotal)}`} sub={`${fmtNum(data.activeVisited)} / ${fmtNum(data.activeTotal)} bayi`} />
-            <Tile label="Toplam saha kaydı" value={fmtNum(data.total)} sub={sc.options.find((o) => o.value === scope)?.label || ''} />
+            <Tile to={`/registrations?period=month&scope=${scope}`} label="Bu ay ziyaret" value={fmtNum(data.month)} sub={<Trend now={data.month} before={data.prevSame} />} />
+            <Tile to={`/registrations?special=install&scope=${scope}`} label="Kurulum bekleyen" value={fmtNum(data.pending)} tone={data.pending ? 'warn' : undefined} sub="tabela / stant talebi" />
+            <Tile to={`/registrations?special=overdue&scope=${scope}`} label={`${OVERDUE_DAYS} günü geçen kurulum`} value={fmtNum(data.overdue)} tone={data.overdue ? 'danger' : 'success'} sub={data.overdue ? 'kurulum fotoğrafı bekleniyor' : 'gecikmiş kurulum yok'} />
+            <Tile to={`/dealers?visit=unvisited&status=ACTIVE&scope=${scope}`} label="Ziyaret edilen aktif bayi" value={`%${pct(data.activeVisited, data.activeTotal)}`} sub={`${fmtNum(data.activeVisited)} / ${fmtNum(data.activeTotal)} bayi · ziyaret edilmeyenler için dokun`} />
+            <Tile to={`/registrations?scope=${scope}`} label="Toplam saha kaydı" value={fmtNum(data.total)} sub={sc.options.find((o) => o.value === scope)?.label || ''} />
             {requests && (() => {
               const open = requests.filter((q) => q.status === 'open' && sc.matchRequest(q, data.dealers.get(q.dealerId)?.k));
               const n = (t) => open.filter((q) => q.type === t).length;
               return (
-                <Link to={`/requests${scope === 'mine' ? '?mine=1' : ''}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                  <Tile label="Açık talep" value={fmtNum(open.length)} tone={open.length ? 'warn' : undefined}
-                    sub={open.length ? `${n('catalog')} katalog · ${n('training')} eğitim · ${n('service')} servis` : 'açık talep yok'} />
-                </Link>
+                <Tile to={`/requests${scope === 'mine' ? '?mine=1' : ''}`} label="Açık talep" value={fmtNum(open.length)} tone={open.length ? 'warn' : undefined}
+                  sub={open.length ? `${n('catalog')} katalog · ${n('training')} eğitim · ${n('service')} servis` : 'açık talep yok'} />
               );
             })()}
+          </div>
+
+          <div className="dash-grid mt-16">
+            <section className="card span-2">
+              <div className="card-header">
+                <div>
+                  <h2 className="card-title">Haftalık ziyaretler</h2>
+                  <div className="card-desc">Son 12 hafta. Bir çubuğa dokununca o haftanın kayıtları açılır.</div>
+                </div>
+                <div className="trend-now">
+                  <div className="num">{data.weeks[11].total}</div>
+                  <div>bu hafta · geçen hafta {data.weeks[10].total}</div>
+                </div>
+              </div>
+              <VisitTrendChart weeks={data.weeks} teams={data.trendTeams}
+                onPick={(w) => navigate(`/registrations?from=${w.from}&to=${w.to}&scope=${scope}`)} />
+            </section>
+            <section className="card">
+              <h2 className="card-title">Kurulum durumu</h2>
+              <div className="card-desc mb-12">Tabela ve stant talepleri</div>
+              <InstallDonut
+                center={{ value: fmtNum(data.pending), label: 'bekleyen' }}
+                parts={[
+                  { key: 'ontime', label: `Bekliyor (${OVERDUE_DAYS} gün içinde)`, value: data.pending - data.overdue, tone: 'amber', to: `special=install` },
+                  { key: 'late', label: `Gecikmiş (${OVERDUE_DAYS}+ gün)`, value: data.overdue, tone: 'red', to: 'special=overdue' },
+                  { key: 'done', label: 'Kurulumu tamamlanan', value: data.installed, tone: 'green', to: 'special=installed' },
+                ]}
+                onPick={(x) => navigate(`/registrations?${x.to}&scope=${scope}`)} />
+            </section>
+            {data.coverage.length > 0 && (
+              <section className="card span-2">
+                <h2 className="card-title">Temsilcilerin bayi kapsaması</h2>
+                <div className="card-desc mb-12">Aktif bayilerinin yüzde kaçı en az bir kez ziyaret edildi. Bir çubuğa dokununca o temsilcinin ziyaret edilmemiş bayileri açılır.</div>
+                <CoverageChart
+                  rows={data.coverage.map((r) => ({ ...r, team: scope === 'all' ? r.team : undefined }))}
+                  onPick={(r) => navigate(`/dealers?rep=${encodeURIComponent(r.key)}&visit=unvisited&status=ACTIVE&scope=all`)} />
+              </section>
+            )}
+            <section className="card">
+              <h2 className="card-title">Tahmini pazar payı</h2>
+              <div className="card-desc mb-12">Rakip adedi girilmiş bayilerde, Airfel FY25 devreye alımına göre.</div>
+              {data.share ? (
+                <>
+                  <ShareGauge pct={data.share.pct} />
+                  <div className="text-xs muted" style={{ fontWeight: 600, textAlign: 'center' }}>
+                    {fmtNum(data.share.dealers)} bayi · Airfel {fmtNum(data.share.airfel)} · rakipler ~{fmtNum(data.share.rival)} adet/yıl
+                  </div>
+                  <div className="mt-12">
+                    {data.brandRows.filter((x) => x.b !== 'Airfel').slice(0, 4).map((x) => (
+                      <div key={x.b} className="mini-row"><span>{x.b}</span><span className="num">{x.n} bayi{x.q ? ` · ~${fmtNum(x.q)}` : ''}</span></div>
+                    ))}
+                  </div>
+                  <button type="button" className="btn-link text-sm mt-8" onClick={() => document.getElementById('rakip')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Tüm markalar</button>
+                </>
+              ) : <p className="text-sm muted">Temsilciler ziyaretlerde rakip markaların yıllık adetlerini girdikçe burada tahmini payımız görünecek.</p>}
+            </section>
           </div>
 
           {data.attention.length > 0 && (
@@ -342,7 +433,7 @@ export default function DashboardPage() {
             ))}
           </section>
 
-          <Card title="Rakip marka dağılımı" className="mt-16"
+          <Card id="rakip" title="Rakip marka dağılımı" className="mt-16"
             desc={data.brandDealers ? `Markası işaretlenmiş ${fmtNum(data.brandDealers)} bayide, her markanın kaç bayide satıldığı.` : 'Temsilciler ziyaretlerde markaları işaretledikçe burada dağılım oluşacak.'}>
             {data.share && (
               <div className="share-box mb-16">

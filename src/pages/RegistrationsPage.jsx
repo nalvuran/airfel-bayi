@@ -26,12 +26,14 @@ export default function RegistrationsPage() {
   const [error, setError] = useState(null);
 
   const [q, setQ] = useState('');
-  const [period, setPeriod] = useState('');
+  // Dönem: '' | gün sayısı (7/30/90) | 'month' (bu ay) | 'range' (from/to adres parametreleriyle, ör. grafikten)
+  const [period, setPeriod] = useState(params.get('period') || (params.get('from') ? 'range' : ''));
+  const rangeFrom = params.get('from'); const rangeTo = params.get('to');
   const [rep, setRep] = useState('');
   const [special, setSpecial] = useState(params.get('special') || '');
   const [exporting, setExporting] = useState(false);
   const [limit, setLimit] = useState(PAGE);
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(!!(params.get('special') || params.get('period') || params.get('from')));
   const [photo, setPhoto] = useState(null);
   const location = useLocation();
   const [queuedNotice] = useState(!!location.state?.queued);
@@ -59,13 +61,19 @@ export default function RegistrationsPage() {
   const filtered = useMemo(() => {
     if (!rows) return [];
     const words = fold(q).split(' ').filter(Boolean);
-    const since = period ? Date.now() - Number(period) * 86400000 : 0;
+    const now = new Date();
+    let since = 0; let until = Infinity;
+    if (period === 'month') since = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    else if (period === 'range' && rangeFrom) { since = new Date(`${rangeFrom}T00:00:00`).getTime(); until = rangeTo ? new Date(`${rangeTo}T23:59:59`).getTime() : Infinity; }
+    else if (period) since = Date.now() - Number(period) * 86400000;
     return rows.filter((r) => {
       if (since && (!r.date || r.date.getTime() < since)) return false;
+      if (until !== Infinity && r.date && r.date.getTime() > until) return false;
       if (rep && r.salesRep !== rep) return false;
       if (special === 'install' && !waitingInstall(r)) return false;
       if (special === 'overdue' && !overdueInstall(r)) return false;
       if (special === 'review' && !r.needsReview) return false;
+      if (special === 'installed' && !(r.photoFiles?.exteriorAfter || r.photoFiles?.interiorAfter || r.photos?.exteriorAfter || r.photos?.interiorAfter)) return false;
       if (words.length) {
         const dn = names[r.dealerId];
         const hay = fold(`${dn?.n ?? ''} ${r.dealerName ?? ''} ${r.companyTitle ?? ''} ${r.contactName ?? ''} ${r.dealerId ?? ''} ${dn?.d ?? ''} ${dn?.c ?? ''}`);
@@ -73,7 +81,7 @@ export default function RegistrationsPage() {
       }
       return true;
     });
-  }, [rows, q, period, rep, special, names]);
+  }, [rows, q, period, rep, special, names, rangeFrom, rangeTo]);
 
   const counts = useMemo(() => ({
     install: (rows ?? []).filter(waitingInstall).length,
@@ -109,14 +117,17 @@ export default function RegistrationsPage() {
         <div className={`filters-grid filters-collapsible ${showFilters ? 'open' : ''}`}>
           <select className="select" value={period} onChange={(e) => setPeriod(e.target.value)}>
             <option value="">Tüm zamanlar</option>
+            <option value="month">Bu ay</option>
             <option value="7">Son 7 gün</option>
             <option value="30">Son 30 gün</option>
             <option value="90">Son 3 ay</option>
+          {period === 'range' && <option value="range">{rangeFrom?.split('-').reverse().join('.')} – {rangeTo?.split('-').reverse().join('.')}</option>}
           </select>
           <select className="select" value={special} onChange={(e) => setSpecial(e.target.value)}>
             <option value="">Tüm kayıtlar</option>
             <option value="install">Kurulum bekleyenler ({counts.install})</option>
             <option value="overdue">Gecikmiş kurulumlar, 30+ gün ({counts.overdue})</option>
+            <option value="installed">Kurulumu tamamlananlar</option>
             {counts.review > 0 && <option value="review">Kontrol gerekenler ({counts.review})</option>}
           </select>
           {scope !== 'mine' && (

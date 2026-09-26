@@ -5,12 +5,28 @@ import { auth, db } from '../firebase';
 
 const AuthContext = createContext(null);
 
-// Roller: 'owner' (sahip; eski 'admin' değeri de sahip sayılır), 'manager' (yönetici, sadece izler), 'rep' (temsilci)
-export const ROLE_LABELS = { owner: 'Sahip', manager: 'Yönetici', rep: 'Temsilci' };
+// Roller: owner (sahip; eski 'admin' de sahip sayılır), deptManager (departman müdürü),
+// regionManager (bölge müdürü; eski 'manager' de bölge müdürü sayılır), rep (temsilci)
+export const ROLE_LABELS = { owner: 'Sahip', deptManager: 'Departman Müdürü', regionManager: 'Bölge Müdürü', rep: 'Temsilci' };
 export function normalizeRole(role) {
   if (role === 'owner' || role === 'admin') return 'owner';
-  if (role === 'manager') return 'manager';
+  if (role === 'deptManager') return 'deptManager';
+  if (role === 'regionManager' || role === 'manager') return 'regionManager';
   return 'rep';
+}
+
+// Yetki tablosu: tek yerden
+export function permissionsFor(role) {
+  return {
+    isOwner: role === 'owner',
+    isRep: role === 'rep',
+    isRegionManager: role === 'regionManager',
+    isDeptManager: role === 'deptManager',
+    isManager: role === 'regionManager' || role === 'deptManager',
+    canRegister: role === 'owner' || role === 'rep',                                    // saha kaydı
+    canOpenRequest: role === 'owner' || role === 'rep' || role === 'regionManager',    // talep açma
+    canPin: role === 'owner' || role === 'regionManager' || role === 'deptManager',    // panoda sabitleme
+  };
 }
 
 export function AuthProvider({ children }) {
@@ -62,9 +78,9 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider value={{
       user, userRole, userProfile, authError, loading,
-      isOwner: userRole === 'owner',
-      isManager: userRole === 'manager',
-      canRegister: userRole === 'owner' || userRole === 'rep',
+      // Ekip ağacındaki kişi anahtarı (temsilcide Customer Data'daki adı)
+      personKey: userProfile?.personKey || userProfile?.salesRepKey || null,
+      ...permissionsFor(userRole),
     }}>
       {!loading && children}
     </AuthContext.Provider>

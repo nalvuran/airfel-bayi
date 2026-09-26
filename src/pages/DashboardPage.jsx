@@ -2,7 +2,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { db } from '../firebase';
-import { useAuth } from '../contexts/AuthContext';
 import { getDealerIndex } from '../utils/dealerIndex';
 import { OVERDUE_DAYS, getRegistrations, overdueInstall, waitingInstall } from '../utils/registrationStore';
 import { titleCase, useRepProfiles } from '../utils/repProfiles';
@@ -11,6 +10,9 @@ import VisitMap from '../components/VisitMap';
 import { loadRequests } from '../utils/requests';
 import { declineLists } from '../utils/decline';
 import { BRANDS } from '../utils/catalog';
+import { useScope } from '../utils/scope';
+import { useTeam } from '../utils/team';
+import ScopePicker from '../components/ScopePicker';
 import { Alert, Avatar, Badge, Card, Empty, PageHeader, Skeleton, fmtNum } from '../components/ui';
 
 const MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
@@ -97,14 +99,14 @@ function RepCard({ rep }) {
 /* ---------- Sayfa ---------- */
 
 export default function DashboardPage() {
-  const { user, userProfile } = useAuth();
-  const myKey = userProfile?.salesRepKey || null;
   const profiles = useRepProfiles(db);
   const [regs, setRegs] = useState(null);
   const [offline, setOffline] = useState(false);
   const [index, setIndex] = useState(null);
   const [error, setError] = useState(null);
-  const [scope, setScope] = useState('team');
+  const sc = useScope({ rep: 'all', regionManager: 'team', deptManager: 'all', owner: 'all' });
+  const scope = sc.scope;
+  const team = useTeam();
   const [allReps, setAllReps] = useState(false);
   const [requests, setRequests] = useState(null);
   const [declineTab, setDeclineTab] = useState('silent');
@@ -128,12 +130,11 @@ export default function DashboardPage() {
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const prevSameEnd = new Date(prevStart.getTime() + (now - monthStart));
-    const mine = scope === 'mine';
-    const isMine = (r) => r.createdByUid === user.uid || (myKey && r.salesRepKey === myKey);
+    const mine = scope !== 'all';
 
-    const dealers = new Map(index.entries.map((e) => [e.i, e]));
-    const scopedRegs = mine ? regs.filter(isMine) : regs;
-    const scopedDealers = mine ? index.entries.filter((e) => e.k === myKey) : index.entries;
+    const dealers = new Map((index.all || index.entries).map((e) => [e.i, e]));
+    const scopedRegs = regs.filter(sc.matchReg);
+    const scopedDealers = index.entries.filter(sc.matchDealer);
     const visited = new Set(regs.map((r) => r.dealerId).filter(Boolean)); // herhangi biri ziyaret ettiyse
     const active = scopedDealers.filter((e) => e.s === 'ACTIVE');
 
@@ -154,7 +155,8 @@ export default function DashboardPage() {
     }));
 
     // Temsilciler
-    const repKeys = [...new Set(index.entries.map((e) => e.k).filter(Boolean))];
+    const repKeys = (team.reps.length ? team.reps.map((p) => p.key) : [...new Set(index.entries.map((e) => e.k).filter(Boolean))])
+      .filter((k) => !sc.repKeys || sc.repKeys.has(k));
     const reps = repKeys.map((k) => {
       const own = index.entries.filter((e) => e.k === k && e.s === 'ACTIVE');
       const rr = regs.filter((r) => r.salesRepKey === k);
@@ -167,8 +169,9 @@ export default function DashboardPage() {
         month: rr.filter((r) => r.date && r.date >= monthStart).length,
         pending: rr.filter(waitingInstall).length,
         overdue: rr.filter(overdueInstall).length,
+        managerKey: team.byKey[k]?.managerKey || null,
       };
-    }).filter((r) => r.active > 0 || r.month > 0)
+    }).filter((r) => r.active > 0 || r.month > 0 || team.byKey[r.key])
       .sort((a, b) => b.month - a.month || pct(b.visited, b.active) - pct(a.visited, a.active));
 
     // Hiç ziyaret edilmemiş, devreye alımı yüksek aktif bayiler
@@ -212,7 +215,7 @@ export default function DashboardPage() {
       attention: regs.filter((r) => r.attention),
       monthName: `${MONTHS[now.getMonth()]} ${now.getFullYear()}`,
     };
-  }, [regs, index, scope, myKey, user.uid, profiles]);
+  }, [regs, index, scope, sc.repKeys, team, profiles]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (error) return <div className="page"><PageHeader title="Dashboard" /><Alert tone="danger">Veriler yüklenemedi: {error}</Alert></div>;
 
@@ -221,12 +224,7 @@ export default function DashboardPage() {
       <PageHeader
         title="Dashboard"
         subtitle={data ? data.monthName : 'Yükleniyor…'}
-        actions={myKey ? (
-          <div className="row" style={{ gap: 8 }}>
-            <button className={`pill ${scope === 'team' ? 'active' : ''}`} onClick={() => setScope('team')}>Tüm ekip</button>
-            <button className={`pill ${scope === 'mine' ? 'active' : ''}`} onClick={() => setScope('mine')}>Benim</button>
-          </div>
-        ) : null}
+        actions={<ScopePicker scope={scope} options={sc.options} onChange={sc.setScope} />}
       />
 
       {offline && <Alert tone="warn" style={{ marginBottom: 14 }}>İnternet bağlantısı yok; telefonda kayıtlı son veriler gösteriliyor.</Alert>}
@@ -238,13 +236,13 @@ export default function DashboardPage() {
           <div className="stat-grid">
             <Tile label="Bu ay ziyaret" value={fmtNum(data.month)} sub={<Trend now={data.month} before={data.prevSame} />} />
             <Tile label="Kurulum bekleyen" value={fmtNum(data.pending)} tone={data.pending ? 'warn' : undefined} sub="tabela / stant talebi" />
-            <Link to={`/registrations?special=overdue${scope === 'mine' ? '&scope=mine' : ''}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+            <Link to={`/registrations?special=overdue&scope=${scope}`} style={{ textDecoration: 'none', color: 'inherit' }}>
               <Tile label={`${OVERDUE_DAYS} günü geçen kurulum`} value={fmtNum(data.overdue)} tone={data.overdue ? 'danger' : 'success'} sub={data.overdue ? 'listeyi görmek için dokun' : 'gecikmiş kurulum yok'} />
             </Link>
             <Tile label="Ziyaret edilen aktif bayi" value={`%${pct(data.activeVisited, data.activeTotal)}`} sub={`${fmtNum(data.activeVisited)} / ${fmtNum(data.activeTotal)} bayi`} />
-            <Tile label="Toplam saha kaydı" value={fmtNum(data.total)} sub={scope === 'mine' ? 'senin kayıtların' : 'tüm ekip'} />
+            <Tile label="Toplam saha kaydı" value={fmtNum(data.total)} sub={sc.options.find((o) => o.value === scope)?.label || ''} />
             {requests && (() => {
-              const open = requests.filter((q) => q.status === 'open' && (scope !== 'mine' || q.createdByUid === user.uid || (myKey && q.createdByRepKey === myKey)));
+              const open = requests.filter((q) => q.status === 'open' && sc.matchRequest(q, data.dealers.get(q.dealerId)?.k));
               const n = (t) => open.filter((q) => q.type === t).length;
               return (
                 <Link to={`/requests${scope === 'mine' ? '?mine=1' : ''}`} style={{ textDecoration: 'none', color: 'inherit' }}>
@@ -284,14 +282,26 @@ export default function DashboardPage() {
             <VisitMap points={data.points} />
           </Card>
 
-          {scope === 'team' && data.reps.length > 0 && (
+          {scope !== 'mine' && data.reps.length > 0 && (
             <section className="mt-16">
               <h2 className="card-title" style={{ marginBottom: 10 }}>Temsilciler</h2>
-              <div className="rep-grid">
-                {(allReps ? data.reps : data.reps.slice(0, 6)).map((r) => <RepCard key={r.key} rep={r} />)}
-              </div>
+              {(() => {
+                const shown = allReps ? data.reps : data.reps.slice(0, 6);
+                // Ekip tanımlıysa bölge müdürlerine göre grupla
+                const groups = team.managers.length
+                  ? team.managers.map((m) => ({ m, list: shown.filter((r) => r.managerKey === m.key) })).filter((g) => g.list.length)
+                  : [{ m: null, list: shown }];
+                const rest = team.managers.length ? shown.filter((r) => !team.managers.some((m) => m.key === r.managerKey)) : [];
+                if (rest.length) groups.push({ m: { name: 'Ekip dışı' }, list: rest });
+                return groups.map((g) => (
+                  <div key={g.m?.key || g.m?.name || 'all'} className="mb-16">
+                    {g.m && <div className="text-sm" style={{ fontWeight: 800, color: 'var(--muted)', margin: '4px 0 8px' }}>{g.m.name}{g.m.key ? ' ekibi' : ''}</div>}
+                    <div className="rep-grid">{g.list.map((r) => <RepCard key={r.key} rep={r} />)}</div>
+                  </div>
+                ));
+              })()}
               {data.reps.length > 6 && (
-                <button className="btn btn-secondary btn-block mt-12" onClick={() => setAllReps((x) => !x)}>
+                <button className="btn btn-secondary btn-block" onClick={() => setAllReps((x) => !x)}>
                   {allReps ? 'Daha az göster' : `Tüm temsilciler (${data.reps.length})`}
                 </button>
               )}

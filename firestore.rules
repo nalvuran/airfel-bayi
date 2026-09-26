@@ -11,9 +11,14 @@ service cloud.firestore {
       return signedIn() && exists(userPath()) && me().get('active', true) == true;
     }
     function myRole() { return me().get('role', 'rep'); }
+    // Roller: owner (eski 'admin' dahil), deptManager, regionManager (eski 'manager' dahil), rep
     function isOwner() { return isActive() && myRole() in ['owner', 'admin']; }
-    function isRep() { return isActive() && !(myRole() in ['owner', 'admin', 'manager']); }
-    function canRegister() { return isOwner() || isRep(); }
+    function isRegionManager() { return isActive() && myRole() in ['regionManager', 'manager']; }
+    function isDeptManager() { return isActive() && myRole() == 'deptManager'; }
+    function isRep() { return isActive() && !(myRole() in ['owner', 'admin', 'manager', 'regionManager', 'deptManager']); }
+    function canRegister() { return isOwner() || isRep(); }                         // saha kaydı
+    function canOpenRequest() { return canRegister() || isRegionManager(); }       // talep açma
+    function canPin() { return isOwner() || isRegionManager() || isDeptManager(); } // panoda sabitleme
     function myRepKey() { return me().get('salesRepKey', null); }
     function regPath(regId) { return /databases/$(database)/documents/registrations/$(regId); }
     // Kaydı giren temsilci ya da kayıt onun temsilci adına kayıtlı (eski sistem kayıtları)
@@ -27,15 +32,16 @@ service cloud.firestore {
     // Sahip rolü uygulamadan verilemez; sahip hesabının rolü değiştirilemez ve pasif yapılamaz.
     match /users/{uid} {
       allow read: if signedIn() && (request.auth.uid == uid || isOwner());
-      allow create: if isOwner() && request.resource.data.get('role', 'rep') in ['rep', 'manager'];
+      allow create: if isOwner() && request.resource.data.get('role', 'rep') in ['rep', 'regionManager', 'deptManager'];
       allow update: if isOwner() && (
         (resource.data.get('role', 'rep') in ['owner', 'admin']
           && request.resource.data.get('role', 'rep') == resource.data.get('role', 'rep')
           && request.resource.data.get('active', true) == true)
         || (!(resource.data.get('role', 'rep') in ['owner', 'admin'])
-          && request.resource.data.get('role', 'rep') in ['rep', 'manager'])
+          && request.resource.data.get('role', 'rep') in ['rep', 'regionManager', 'deptManager', 'manager'])
       );
-      allow delete: if false;
+      // "Kaldır": sahip, sahip olmayan hesapları kaldırabilir
+      allow delete: if isOwner() && !(resource.data.get('role', 'rep') in ['owner', 'admin']);
     }
 
     // ---------- Bayi verisi (Customer Data) ----------
@@ -52,7 +58,7 @@ service cloud.firestore {
         allow read: if isActive();
         allow create: if isActive() && validText()
           && request.resource.data.byUid == request.auth.uid
-          && request.resource.data.keys().hasOnly(['text', 'byUid', 'byName', 'byRepKey', 'createdAt']);
+          && request.resource.data.keys().hasOnly(['text', 'byUid', 'byName', 'byRepKey', 'byRole', 'createdAt']);
         allow update: if isActive() && validText()
           && resource.data.byUid == request.auth.uid
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt']);
@@ -108,22 +114,14 @@ service cloud.firestore {
 
     // ---------- Talepler (katalog, eğitim, servis sorunu, diğer) ----------
     match /requests/{reqId} {
-      // Kapatabilecekler: sahip, talebi açan temsilci, talebi açanla aynı temsilci adı ya da bayinin temsilcisi
-      function canCloseIt() {
-        return isOwner() || (isRep() && (
-          resource.data.createdByUid == request.auth.uid
-          || (myRepKey() != null && (
-               resource.data.get('createdByRepKey', null) == myRepKey()
-               || get(/databases/$(database)/documents/dealers/$(resource.data.dealerId)).data.get('salesRepKey', null) == myRepKey()))));
-      }
       allow read: if isActive();
-      allow create: if canRegister()
+      allow create: if canOpenRequest()
         && request.resource.data.createdByUid == request.auth.uid
         && request.resource.data.status == 'open'
         && request.resource.data.type in ['catalog', 'training', 'service', 'other']
         && exists(/databases/$(database)/documents/dealers/$(request.resource.data.dealerId));
-      // Kapatırken sadece durum bilgileri değişebilir
-      allow update: if canCloseIt()
+      // Talebi sadece açan kişi ve sahip kapatabilir; kapatırken sadece durum bilgileri değişebilir
+      allow update: if (isOwner() || (isActive() && resource.data.createdByUid == request.auth.uid))
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'closedAt', 'closedByUid', 'closedByName', 'closeNote', 'syncAt'])
         && request.resource.data.status in ['open', 'done', 'cancelled'];
       allow delete: if isOwner();
@@ -153,8 +151,8 @@ service cloud.firestore {
         // Yazan kendi metnini düzenler
         (resource.data.byUid == request.auth.uid && validText()
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt']))
-        // Sadece sahip sabitler
-        || (isOwner() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pinned', 'pinnedAt']))
+        // Sahip, departman müdürü ve bölge müdürleri sabitler
+        || (canPin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pinned', 'pinnedAt']))
         // Yorum eklenince/silinince sayaç birer birer değişir
         || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['commentCount'])
           && (request.resource.data.commentCount - resource.data.get('commentCount', 0)) in [1, -1])

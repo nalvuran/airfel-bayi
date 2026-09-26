@@ -4,6 +4,7 @@ import { Link, NavLink, useLocation } from 'react-router-dom';
 import { auth } from '../firebase';
 import { useAuth, ROLE_LABELS } from '../contexts/AuthContext';
 import { clearSyncError, useOnline, useSyncState } from '../utils/offline';
+import { useTheme } from '../utils/theme';
 
 /* ---------- Simgeler ---------- */
 const Icon = ({ children }) => (
@@ -17,6 +18,9 @@ const PlusIcon = () => <Icon><path d="M12 5v14M5 12h14" /></Icon>;
 const ListIcon = () => <Icon><rect x="5" y="3" width="14" height="18" rx="2" /><path d="M9 8h6M9 12h6M9 16h4" /></Icon>;
 const ChartIcon = () => <Icon><path d="M4 20V10" /><path d="M10 20V4" /><path d="M16 20v-7" /><path d="M22 20H2" /></Icon>;
 const GridIcon = () => <Icon><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></Icon>;
+const SunIcon = () => <Icon><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></Icon>;
+const MoonIcon = () => <Icon><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" /></Icon>;
+const AutoIcon = () => <Icon><circle cx="12" cy="12" r="9" /><path d="M12 3v18" /><path d="M12 3a9 9 0 0 1 0 18" fill="currentColor" /></Icon>;
 const LogoutIcon = () => <Icon><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" /><path d="M10 17l-5-5 5-5" /><path d="M5 12h11" /></Icon>;
 
 // Bağlantı ve gönderim durumu: sadece bir sorun ya da bekleyen iş varsa görünür
@@ -33,6 +37,18 @@ function SyncStatus() {
   if (!online) return <span className="sync-chip sync-offline" title="İnternet bağlantısı yok. Girdiğin kayıtlar telefonda saklanır.">Çevrimdışı</span>;
   if (pending) return <span className="sync-chip sync-pending" title="Telefonda bekleyen kayıtlar gönderiliyor">Gönderiliyor…</span>;
   return null;
+}
+
+// Tema düğmesi: Sistem → Açık → Koyu → Sistem
+function ThemeButton() {
+  const { pref, setPref } = useTheme();
+  const next = { system: 'light', light: 'dark', dark: 'system' }[pref] || 'light';
+  const label = { system: 'Tema: telefonun ayarı', light: 'Tema: açık', dark: 'Tema: koyu' }[pref];
+  return (
+    <button className="theme-btn" onClick={() => setPref(next)} title={`${label} (değiştirmek için dokun)`} aria-label={`${label}. Değiştir`}>
+      {pref === 'dark' ? <MoonIcon /> : pref === 'light' ? <SunIcon /> : <AutoIcon />}
+    </button>
+  );
 }
 
 export default function Layout({ children }) {
@@ -54,7 +70,7 @@ export default function Layout({ children }) {
     { label: 'Pano', to: '/pano' },
     { label: 'Dashboard', to: '/dashboard' },
     ...(isOwner ? [
-      { label: 'Kullanıcılar', to: '/admin/users' },
+      { label: 'Ekip', to: '/admin/users' },
       { label: 'Veri Yükle', to: '/admin/sync' },
       { label: 'Yedek', to: '/admin/backup' },
     ] : []),
@@ -76,7 +92,8 @@ export default function Layout({ children }) {
       <header className="app-header">
         <div className="app-header-inner">
           <Link to="/" className="app-logo" aria-label="Ana sayfa">
-            <img src="/logo.png" alt="airfel" />
+            <img className="logo-light" src="/logo.png" alt="airfel" />
+            <img className="logo-dark" src="/logo-dark.png" alt="airfel" />
           </Link>
           <nav className="top-nav" aria-label="Ana menü">
             {topLinks.map((l) => (
@@ -85,6 +102,7 @@ export default function Layout({ children }) {
           </nav>
           <div className="user-box">
             <SyncStatus />
+            <ThemeButton />
             <span className="user-name">{userProfile?.name || user?.email}</span>
             <span className="role-chip">{ROLE_LABELS[userRole] || 'Temsilci'}</span>
             <button className="logout-btn" onClick={handleLogout} aria-label="Çıkış yap">

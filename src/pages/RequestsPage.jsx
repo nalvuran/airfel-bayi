@@ -2,19 +2,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { db } from '../firebase';
-import { useAuth } from '../contexts/AuthContext';
 import { CATALOG_ITEMS, REQUEST_STATUS, REQUEST_TYPES, TRAINING_TOPICS, requestSummary } from '../utils/catalog';
 import { loadRequests, requestAgeDays } from '../utils/requests';
 import { getDealerIndex, fold } from '../utils/dealerIndex';
 import { exportRequests } from '../utils/exportExcel';
+import { useScope } from '../utils/scope';
+import ScopePicker from '../components/ScopePicker';
 import { Alert, Badge, Empty, PageHeader, SkeletonRows, Stat, fmtNum } from '../components/ui';
 
 const fmtDate = (d) => (d ? d.toLocaleDateString('tr-TR') : '');
 
 export default function RequestsPage() {
-  const { user, userProfile, userRole } = useAuth();
-  const myKey = userProfile?.salesRepKey || null;
   const [params] = useSearchParams();
+  const sc = useScope({ rep: 'mine', regionManager: 'team', deptManager: 'all', owner: 'all' }, params.get('mine') === '1' ? 'mine' : null);
   const [list, setList] = useState(null);
   const [dealers, setDealers] = useState(new Map());
   const [error, setError] = useState(null);
@@ -23,19 +23,15 @@ export default function RequestsPage() {
   const [rep, setRep] = useState('');
   const [city, setCity] = useState('');
   const [q, setQ] = useState('');
-  const [mine, setMine] = useState(params.get('mine') === '1' || userRole === 'rep');
   const [exporting, setExporting] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     loadRequests(db).then(setList).catch((e) => setError(e.message));
-    getDealerIndex(db).then((idx) => setDealers(new Map(idx.entries.map((e) => [e.i, e])))).catch(() => {});
+    getDealerIndex(db).then((idx) => setDealers(new Map((idx.all || idx.entries).map((e) => [e.i, e])))).catch(() => {});
   }, []);
 
-  // "Benim": talebi ben açtım ya da bayi benim
-  const isMine = (x) => x.createdByUid === user.uid || (myKey && (x.createdByRepKey === myKey || dealers.get(x.dealerId)?.k === myKey));
-
-  const base = useMemo(() => (list || []).filter((x) => !mine || isMine(x)), [list, mine, dealers]); // eslint-disable-line react-hooks/exhaustive-deps
+  const base = useMemo(() => (list || []).filter((x) => sc.matchRequest(x, dealers.get(x.dealerId)?.k)), [list, dealers, sc.scope, sc.repKeys]); // eslint-disable-line react-hooks/exhaustive-deps
   const options = useMemo(() => ({
     reps: [...new Set(base.map((x) => x.createdByName).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'tr')),
     cities: [...new Set(base.map((x) => dealers.get(x.dealerId)?.c).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'tr')),
@@ -127,12 +123,7 @@ export default function RequestsPage() {
             {options.reps.map((r) => <option key={r}>{r}</option>)}
           </select>
         </div>
-        {myKey && (
-          <label className="check mt-12">
-            <input type="checkbox" checked={mine} onChange={(e) => setMine(e.target.checked)} />
-            Sadece benim taleplerim ve bayilerim
-          </label>
-        )}
+        <div className="mt-12"><ScopePicker scope={sc.scope} options={sc.options} onChange={sc.setScope} /></div>
       </div>
 
       {!list && !error && <SkeletonRows rows={5} />}

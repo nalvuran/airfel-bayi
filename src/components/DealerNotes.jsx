@@ -4,7 +4,7 @@ import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { NOTE_MAX, addNote, editNote, loadNotes, removeNote } from '../utils/notes';
 import { useRepProfiles } from '../utils/repProfiles';
-import { Alert, Avatar, Card, Skeleton } from './ui';
+import { Alert, Avatar, Badge, Card, Skeleton } from './ui';
 
 const fmtDateTime = (v) => {
   const d = v?.toDate ? v.toDate() : v instanceof Date ? v : null;
@@ -36,6 +36,8 @@ function NoteEditor({ initial = '', placeholder, submitLabel, busy, onSubmit, on
   );
 }
 
+const MANAGER_LABEL = { regionManager: 'Bölge müdürü notu', deptManager: 'Departman müdürü notu' };
+
 function Note({ note, dealerId, canEdit, canDelete, photo, onChanged }) {
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -53,11 +55,12 @@ function Note({ note, dealerId, canEdit, canDelete, photo, onChanged }) {
   };
 
   return (
-    <div className="note">
+    <div className={`note ${MANAGER_LABEL[note.byRole] ? 'note-manager' : ''}`}>
       <Avatar name={note.byName} src={photo} size={34} />
       <div style={{ minWidth: 0, flex: 1 }}>
         <div className="row" style={{ gap: 6 }}>
           <strong className="text-sm">{note.byName}</strong>
+          {MANAGER_LABEL[note.byRole] && <Badge tone="klima">{MANAGER_LABEL[note.byRole]}</Badge>}
           <span className="text-xs muted num">{fmtDateTime(note.createdAt)}{note.editedAt && ' · düzenlendi'}</span>
         </div>
         {editing
@@ -76,7 +79,7 @@ function Note({ note, dealerId, canEdit, canDelete, photo, onChanged }) {
 }
 
 export default function DealerNotes({ dealerId }) {
-  const { user, userProfile, isOwner } = useAuth();
+  const { user, userProfile, userRole, isOwner } = useAuth();
   const profiles = useRepProfiles(db);
   const [notes, setNotes] = useState(null);
   const [reload, setReload] = useState(0);
@@ -92,7 +95,7 @@ export default function DealerNotes({ dealerId }) {
   const add = async (text) => {
     setBusy(true); setError('');
     try {
-      const { queued } = await addNote(db, dealerId, { text, user, profile: userProfile });
+      const { queued } = await addNote(db, dealerId, { text, user, profile: userProfile, role: userRole });
       setInfo(queued ? 'Not telefonda saklandı; bağlantı gelince otomatik gönderilecek.' : '');
       setReload((x) => x + 1); return true;
     }

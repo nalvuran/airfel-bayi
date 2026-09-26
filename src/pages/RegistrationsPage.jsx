@@ -11,15 +11,15 @@ import { PhotoLightbox } from '../components/Photos';
 import { useRepProfiles } from '../utils/repProfiles';
 import { getRegistrations, invalidateRegistrations, overdueInstall, waitingInstall } from '../utils/registrationStore';
 import { exportRegistrations } from '../utils/exportExcel';
+import { useScope } from '../utils/scope';
+import ScopePicker from '../components/ScopePicker';
 
 const PAGE = 24;
 export default function RegistrationsPage() {
-  const { user, userRole, userProfile, canRegister } = useAuth();
+  const { canRegister } = useAuth();
   const [params] = useSearchParams();
-  const isRep = userRole === 'rep';
-  const myKey = userProfile?.salesRepKey || null;
-
-  const [scope, setScope] = useState(params.get('scope') || (isRep ? 'mine' : 'all'));
+  const sc = useScope({ rep: 'mine', regionManager: 'team', deptManager: 'all', owner: 'all' }, params.get('scope'));
+  const scope = sc.scope;
   const [all, setAll] = useState(null);
   const [offline, setOffline] = useState(false);
   const [names, setNames] = useState({});
@@ -43,16 +43,12 @@ export default function RegistrationsPage() {
       .catch((e) => setError(e.message));
   }, []);
 
-  // "Benimkiler": kaydı ben girdim ya da kayıt benim temsilci adıma
-  const rows = useMemo(() => {
-    if (!all) return null;
-    if (scope === 'all') return all;
-    return all.filter((r) => r.createdByUid === user.uid || (myKey && r.salesRepKey === myKey));
-  }, [all, scope, myKey, user.uid]);
+  // Kapsam: Benim / Ekibim / Tümü / bir bölge müdürünün ekibi
+  const rows = useMemo(() => (all ? all.filter(sc.matchReg) : null), [all, sc.scope, sc.repKeys]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     getDealerIndex(db)
-      .then((idx) => setNames(Object.fromEntries(idx.entries.map((e) => [e.i, { n: e.n, c: e.c, d: e.d, v: e.v, x: e.x }]))))
+      .then((idx) => setNames(Object.fromEntries((idx.all || idx.entries).map((e) => [e.i, { n: e.n, c: e.c, d: e.d, v: e.v, x: e.x }]))))
       .catch(() => {});
   }, []);
 
@@ -85,7 +81,7 @@ export default function RegistrationsPage() {
     review: (rows ?? []).filter((r) => r.needsReview).length,
   }), [rows]);
 
-  const title = scope === 'all' ? 'Kayıtlar' : 'Kayıtlarım';
+  const title = scope === 'mine' ? 'Kayıtlarım' : 'Kayıtlar';
   const activeFilters = [period, special, rep].filter(Boolean).length;
 
   return (
@@ -105,13 +101,7 @@ export default function RegistrationsPage() {
       />
 
       <div className="card mb-16">
-        {userRole !== 'manager' && (
-          <div className="row mb-12" style={{ gap: 8 }}>
-            {[['all', 'Tüm kayıtlar'], ['mine', 'Sadece benimkiler']].map(([k, l]) => (
-              <button key={k} className={`pill ${scope === k ? 'active' : ''}`} onClick={() => setScope(k)}>{l}</button>
-            ))}
-          </div>
-        )}
+        <div className="mb-12"><ScopePicker scope={scope} options={sc.options} onChange={sc.setScope} /></div>
         <input type="search" className="input input-lg" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Bayi, firma, görüşülen kişi veya Platform ID ara" />
         <button type="button" className="filters-toggle mt-12" onClick={() => setShowFilters((x) => !x)} aria-expanded={showFilters}>
           Filtreler {activeFilters > 0 && <span className="count">{activeFilters}</span>}
@@ -129,7 +119,7 @@ export default function RegistrationsPage() {
             <option value="overdue">Gecikmiş kurulumlar, 30+ gün ({counts.overdue})</option>
             {counts.review > 0 && <option value="review">Kontrol gerekenler ({counts.review})</option>}
           </select>
-          {scope === 'all' && (
+          {scope !== 'mine' && (
             <select className="select" value={rep} onChange={(e) => setRep(e.target.value)}>
               <option value="">Tüm temsilciler</option>
               {reps.map((r) => <option key={r}>{r}</option>)}

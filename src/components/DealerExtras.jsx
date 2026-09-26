@@ -196,16 +196,14 @@ function RequestRow({ q, canClose, onChanged, onOpenPhoto }) {
   );
 }
 
-// Talebi kim kapatabilir: sahip, talebi açan ya da bayinin temsilcisi
+// Talebi kim kapatabilir: sadece talebi açan kişi ve sahip
 export function useCanCloseRequest() {
-  const { user, userProfile, isOwner, userRole } = useAuth();
-  const myKey = userProfile?.salesRepKey;
-  return (q, dealerRepKey) => isOwner || (userRole === 'rep' && (
-    q.createdByUid === user?.uid || (myKey && (q.createdByRepKey === myKey || dealerRepKey === myKey))));
+  const { user, isOwner } = useAuth();
+  return (q) => isOwner || q.createdByUid === user?.uid;
 }
 
-export function DealerRequests({ dealer, dealerRepKey, onOpenPhoto }) {
-  const { user, userProfile, canRegister } = useAuth();
+export function DealerRequests({ dealer, onOpenPhoto }) {
+  const { user, userProfile, canOpenRequest } = useAuth();
   const canClose = useCanCloseRequest();
   const [list, setList] = useState(null);
   const [draft, setDraft] = useState(null);
@@ -233,7 +231,7 @@ export function DealerRequests({ dealer, dealerRepKey, onOpenPhoto }) {
 
   return (
     <Card title={`Talepler${open.length ? ` (${open.length} açık)` : ''}`}
-      actions={canRegister && !draft ? <button className="btn btn-secondary btn-sm" onClick={() => setDraft(emptyDraft())}>+ Talep ekle</button> : null}>
+      actions={canOpenRequest && !draft ? <button className="btn btn-secondary btn-sm" onClick={() => setDraft(emptyDraft())}>+ Talep ekle</button> : null}>
       {draft && (
         <div className="mb-16">
           <RequestDraftEditor draft={draft} onChange={setDraft} disabled={busy} />
@@ -246,7 +244,7 @@ export function DealerRequests({ dealer, dealerRepKey, onOpenPhoto }) {
       {msg && <Alert tone={msg.tone} style={{ marginBottom: 12 }}>{msg.text}</Alert>}
       {list && list.length === 0 && !draft && <p className="text-sm muted">Bu bayi için talep yok.</p>}
       {[...open, ...closed].map((q) => (
-        <RequestRow key={q.id} q={q} canClose={canClose(q, dealerRepKey)} onChanged={() => setReload((x) => x + 1)} onOpenPhoto={onOpenPhoto} />
+        <RequestRow key={q.id} q={q} canClose={canClose(q)} onChanged={() => setReload((x) => x + 1)} onOpenPhoto={onOpenPhoto} />
       ))}
     </Card>
   );

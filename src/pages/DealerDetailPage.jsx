@@ -12,6 +12,7 @@ import { Photo, Lightbox, SLOT_LABEL } from '../components/Photos';
 import { Alert, Badge, Card, Info, PageHeader, Skeleton, StatusBadge } from '../components/ui';
 import { clearRegistrationsCache } from './RegistrationsPage';
 import { installWaitDays, overdueInstall } from '../utils/registrationStore';
+import { getDealerIndex } from '../utils/dealerIndex';
 
 // Devreye alım rakamlarını tüm kullanıcılara göster. Kısıtlamak gerekirse burayı değiştir.
 const SHOW_DEVREYE = true;
@@ -104,7 +105,7 @@ function DetailSkeleton() {
 
 export default function DealerDetailPage() {
   const { id } = useParams();
-  const { user, userRole, userProfile, isOwner, canRegister } = useAuth();
+  const { user, userProfile, isOwner, isRep, canRegister } = useAuth();
   const location = useLocation();
   const [notice, setNotice] = useState('');
   const [justSaved] = useState(!!location.state?.saved);
@@ -113,6 +114,8 @@ export default function DealerDetailPage() {
   const [regs, setRegs] = useState(null);
   const [error, setError] = useState(null);
   const [lightbox, setLightbox] = useState(null);
+  const [gone, setGone] = useState(false);
+  useEffect(() => { getDealerIndex(db).then((idx) => setGone(!!(idx.all || []).find((e) => e.i === id)?.gone)).catch(() => {}); }, [id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -130,7 +133,7 @@ export default function DealerDetailPage() {
   }, [id, reload]);
 
   // Sahip her kaydı, temsilci kendi kayıtlarını düzenler; yönetici sadece izler
-  const canEdit = (r) => isOwner || (userRole === 'rep' && (r.createdByUid === user?.uid ||
+  const canEdit = (r) => isOwner || (isRep && (r.createdByUid === user?.uid ||
     (!!userProfile?.salesRepKey && r.salesRepKey === userProfile.salesRepKey)));
 
   const back = { to: '/dealers', label: 'Bayiler' };
@@ -147,6 +150,7 @@ export default function DealerDetailPage() {
           <span className="row" style={{ gap: 8 }}>
             <span>{dealer.platformId || 'Platform ID yok'} · {[dealer.district, dealer.city].filter(Boolean).join(', ')}</span>
             <StatusBadge status={dealer.status} />
+            {gone && <Badge tone="warn">Güncel Customer Data'da yok</Badge>}
           </span>
         }
       />
@@ -173,7 +177,7 @@ export default function DealerDetailPage() {
       )}
 
       <DealerFollowUp dealer={{ i: id, n: dealer.name }} />
-      <DealerRequests dealer={{ i: id, n: dealer.name }} dealerRepKey={dealer.salesRepKey} onOpenPhoto={setLightbox} />
+      <DealerRequests dealer={{ i: id, n: dealer.name }} onOpenPhoto={setLightbox} />
       <DealerBrands regs={regs} sales={dealer.sales} />
 
       <DealerNotes dealerId={id} />

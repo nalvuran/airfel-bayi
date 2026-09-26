@@ -1,35 +1,15 @@
-// src/pages/UsersPage.jsx
+// src/pages/UsersPage.jsx — Ekip ağacı ve hesaplar (sadece sahip)
 import { useEffect, useMemo, useState } from 'react';
 import { deleteApp, initializeApp } from 'firebase/app';
 import { createUserWithEmailAndPassword, getAuth, sendPasswordResetEmail, signOut } from 'firebase/auth';
-import { collection, doc, getDocs, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDocs, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import app, { auth, db } from '../firebase';
 import { useAuth, normalizeRole, ROLE_LABELS } from '../contexts/AuthContext';
 import { getDealerIndex } from '../utils/dealerIndex';
-import { Alert, Avatar, PageHeader } from '../components/ui';
-import { removeRepPhoto, saveRepPhoto, titleCase, useRepProfiles } from '../utils/repProfiles';
+import { removeRepPhoto, removePerson, savePerson, saveRepPhoto } from '../utils/repProfiles';
+import { SEED_TEAM, TEAM_ROLES, personKey, seedTeam, useTeam } from '../utils/team';
 import { squareAvatar } from '../utils/image';
-
-const C = {
-  red: 'var(--red)', redBg: 'var(--red-soft)', text: 'var(--ink)', muted: 'var(--muted)',
-  border: 'var(--border)', soft: 'var(--surface-2)', ok: 'var(--green)', okBg: 'var(--green-soft)', warn: 'var(--amber)', warnBg: 'var(--amber-soft)',
-};
-
-
-const card = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: 'var(--shadow)', padding: 20, marginBottom: 16 };
-const input = {
-  border: '1.5px solid var(--border)', borderRadius: 8, padding: '10px 12px', fontSize: 15,
-  background: 'var(--surface)', color: 'var(--ink)', width: '100%', boxSizing: 'border-box',
-};
-const label = { display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 4, fontWeight: 700 };
-const btn = (primary, disabled) => ({
-  background: disabled ? '#DCD8D3' : primary ? 'var(--red)' : 'var(--surface)',
-  color: primary || disabled ? '#fff' : 'var(--ink)',
-  border: `1.5px solid ${disabled ? '#DCD8D3' : primary ? 'var(--red)' : 'var(--border)'}`,
-  borderRadius: 10, padding: '10px 16px', fontSize: 14, fontWeight: 800,
-  cursor: disabled ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap',
-});
-const linkBtn = { background: 'none', border: 'none', padding: 0, color: 'var(--red)', fontSize: 13, fontWeight: 800, cursor: 'pointer' };
+import { Alert, Avatar, Badge, Card, PageHeader } from '../components/ui';
 
 const AUTH_ERRORS = {
   'auth/email-already-in-use': 'Bu e-posta ile zaten bir hesap var. Firebase Console > Authentication bölümünden kontrol et.',
@@ -38,7 +18,7 @@ const AUTH_ERRORS = {
   'auth/too-many-requests': 'Çok fazla deneme yapıldı. Birkaç dakika sonra tekrar dene.',
   'auth/operation-not-allowed': 'Firebase\'de e-posta/şifre girişi kapalı. Authentication > Sign-in method bölümünden aç.',
 };
-const authMsg = (e) => AUTH_ERRORS[e.code] || e.message;
+const errMsg = (e) => AUTH_ERRORS[e?.code] || (e?.code === 'permission-denied' ? 'Bu işlem için iznin yok. Firestore kurallarını güncellediğinden emin ol.' : e?.message || String(e));
 
 function randomPassword() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#%';
@@ -47,7 +27,7 @@ function randomPassword() {
   return Array.from(a, (n) => chars[n % chars.length]).join('');
 }
 
-// Yeni kullanıcıyı ikinci bir Firebase örneğiyle açar; böylece yönetici oturumu kapanmaz
+// Yeni hesabı ikinci bir Firebase örneğiyle açar; böylece senin oturumun kapanmaz
 async function createAuthAccount(email, password) {
   const secondary = initializeApp(app.options, `user-create-${Date.now()}`);
   try {
@@ -59,323 +39,343 @@ async function createAuthAccount(email, password) {
     await deleteApp(secondary);
   }
 }
-
 async function sendSetPasswordMail(email) {
   auth.languageCode = 'tr';
   await sendPasswordResetEmail(auth, email);
 }
 
-function Message({ msg }) {
-  if (!msg) return null;
-  const bg = msg.tone === 'error' ? C.redBg : msg.tone === 'ok' ? C.okBg : C.warnBg;
-  const fg = msg.tone === 'error' ? C.red : msg.tone === 'ok' ? C.ok : C.warn;
-  return <div style={{ background: bg, color: fg, borderRadius: 8, padding: '10px 14px', fontSize: 14, marginTop: 12 }}>{msg.text}</div>;
-}
+const accountKey = (u) => u.personKey || u.salesRepKey || null;
 
-function RepSelect({ value, onChange, reps, takenBy, selfUid }) {
+/* ---------- Ekip ağacı: bir kişi satırı ---------- */
+
+function PersonRow({ p, depth, account, team, adminEmail, onChanged }) {
+  const [mode, setMode] = useState(null); // 'edit'
+  const [f, setF] = useState({ role: p.role, managerKey: p.managerKey || '' });
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
+
+  const run = async (fn, ok) => {
+    setBusy(true); setMsg(null);
+    try { await fn(); if (ok) setMsg({ tone: 'success', text: ok }); onChanged(); } catch (e) { setMsg({ tone: 'danger', text: errMsg(e) }); } finally { setBusy(false); }
+  };
+  const onPhoto = async (e) => {
+    const file = e.target.files?.[0]; e.target.value = '';
+    if (!file) return;
+    await run(async () => {
+      const photo = await squareAvatar(file);
+      URL.revokeObjectURL(photo.previewUrl);
+      await saveRepPhoto(db, { key: p.key, name: p.name, photo, by: adminEmail });
+    });
+  };
+  const managerOptions = f.role === 'rep' ? team.managers : f.role === 'regionManager' ? team.dept : [];
+  const acc = account;
+  const accState = !acc ? { tone: undefined, text: 'Hesabı yok' }
+    : acc.active === false ? { tone: 'warn', text: 'Hesap pasif' }
+      : { tone: 'success', text: 'Hesabı var' };
+
   return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} style={input}>
-      <option value="">Bağlı değil</option>
-      {reps.map((r) => {
-        const owner = takenBy[r.key];
-        const taken = owner && owner !== selfUid;
-        return (
-          <option key={r.key} value={r.key}>
-            {r.name} ({r.count} bayi){taken ? ' · başka hesaba bağlı' : ''}
-          </option>
-        );
-      })}
-    </select>
+    <div className="team-row" style={{ paddingLeft: 12 + depth * 22 }}>
+      <div className="row" style={{ flexWrap: 'nowrap', gap: 10 }}>
+        <Avatar name={p.name} src={p.url} size={depth === 0 ? 44 : 38} />
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ fontWeight: 800 }}>{p.name}</div>
+          <div className="row" style={{ gap: 6, marginTop: 3 }}>
+            <span className="text-xs muted" style={{ fontWeight: 700 }}>{TEAM_ROLES[p.role]}</span>
+            <Badge tone={accState.tone}>{accState.text}</Badge>
+          </div>
+        </div>
+      </div>
+      {mode !== 'edit' && (
+        <div className="row mt-8" style={{ gap: 14, paddingLeft: depth === 0 ? 54 : 48 }}>
+          <label className="btn-link text-sm" style={{ cursor: busy ? 'wait' : 'pointer' }}>
+            {p.url ? 'Fotoğrafı değiştir' : 'Fotoğraf ekle'}
+            <input type="file" accept="image/*" onChange={onPhoto} disabled={busy} style={{ display: 'none' }} />
+          </label>
+          {p.url && <button className="btn-link text-sm" style={{ color: 'var(--muted)' }} disabled={busy}
+            onClick={() => window.confirm('Fotoğraf kaldırılsın mı?') && run(() => removeRepPhoto(db, { key: p.key, by: adminEmail }))}>Fotoğrafı kaldır</button>}
+          <button className="btn-link text-sm" disabled={busy} onClick={() => setMode('edit')}>Düzenle</button>
+          <button className="btn-link text-sm" style={{ color: 'var(--muted)' }} disabled={busy}
+            onClick={() => window.confirm(`${p.name} ekipten çıkarılsın mı?${acc ? ' Hesabı ayrıca "Hesaplar" bölümünden kaldırman gerekir.' : ''}`) && run(() => removePerson(db, { key: p.key, by: adminEmail }))}>Ekipten çıkar</button>
+        </div>
+      )}
+      {mode === 'edit' && (
+        <div className="editor" style={{ marginTop: 10 }}>
+          <div className="form-grid">
+            <div>
+              <span className="label-sm">Görev</span>
+              <select className="select" value={f.role} onChange={(e) => setF({ role: e.target.value, managerKey: '' })}>
+                {Object.entries(TEAM_ROLES).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+              </select>
+            </div>
+            {f.role !== 'deptManager' && (
+              <div>
+                <span className="label-sm">Bağlı olduğu kişi</span>
+                <select className="select" value={f.managerKey} onChange={(e) => setF({ ...f, managerKey: e.target.value })}>
+                  <option value="">Seç</option>
+                  {managerOptions.filter((m) => m.key !== p.key).map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}
+                </select>
+              </div>
+            )}
+          </div>
+          <div className="row mt-12">
+            <button className="btn btn-primary btn-sm" disabled={busy || (f.role !== 'deptManager' && !f.managerKey)}
+              onClick={() => run(async () => {
+                await savePerson(db, { key: p.key, name: p.name, role: f.role, managerKey: f.role === 'deptManager' ? null : f.managerKey, by: adminEmail });
+                // Hesabı varsa görevi hesaba da yansıt (sahip hariç)
+                if (acc && normalizeRole(acc.role) !== 'owner') await updateDoc(doc(db, 'users', acc.id), { role: f.role, salesRepKey: f.role === 'rep' ? p.key : null, personKey: p.key });
+                setMode(null);
+              }, 'Kaydedildi.')}>Kaydet</button>
+            <button className="btn btn-secondary btn-sm" disabled={busy} onClick={() => setMode(null)}>Vazgeç</button>
+          </div>
+        </div>
+      )}
+      {msg && <Alert tone={msg.tone} style={{ marginTop: 8 }}>{msg.text}</Alert>}
+    </div>
   );
 }
 
-/* ---------- Yeni kullanıcı ---------- */
-
-function CreateUser({ reps, takenBy, onCreated, adminEmail }) {
+function AddPerson({ team, adminEmail, onChanged }) {
   const [open, setOpen] = useState(false);
-  const [f, setF] = useState({ name: '', email: '', role: 'rep', salesRepKey: '', password: '' });
+  const [f, setF] = useState({ name: '', role: 'rep', managerKey: '' });
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(null);
-  const set = (k) => (v) => setF((x) => ({ ...x, [k]: v }));
-
-  // Temsilci seçilince ad alanı boşsa, adı temsilci adından doldur
-  const pickRep = (key) => {
-    const rep = reps.find((r) => r.key === key);
-    setF((x) => ({ ...x, salesRepKey: key, name: x.name || (rep ? rep.name.toLocaleLowerCase('tr-TR').replace(/(^|\s)\S/g, (c) => c.toLocaleUpperCase('tr-TR')) : '') }));
+  const managerOptions = f.role === 'rep' ? team.managers : f.role === 'regionManager' ? team.dept : [];
+  if (!open) return <button className="btn btn-secondary btn-sm" onClick={() => setOpen(true)}>+ Kişi ekle</button>;
+  const save = async () => {
+    const name = f.name.trim().replace(/\s+/g, ' ');
+    if (!name) { setMsg({ tone: 'danger', text: 'Adı yaz.' }); return; }
+    if (f.role !== 'deptManager' && !f.managerKey) { setMsg({ tone: 'danger', text: 'Bağlı olduğu kişiyi seç.' }); return; }
+    setBusy(true); setMsg(null);
+    try {
+      await savePerson(db, { key: personKey(name), name, role: f.role, managerKey: f.role === 'deptManager' ? null : f.managerKey, by: adminEmail });
+      setOpen(false); setF({ name: '', role: 'rep', managerKey: '' }); onChanged();
+    } catch (e) { setMsg({ tone: 'danger', text: errMsg(e) }); } finally { setBusy(false); }
   };
+  return (
+    <div className="editor">
+      <div className="form-grid">
+        <div>
+          <span className="label-sm">Ad soyad (Customer Data'daki yazılışla aynı)</span>
+          <input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Örn. Sinan Aydın" />
+        </div>
+        <div>
+          <span className="label-sm">Görev</span>
+          <select className="select" value={f.role} onChange={(e) => setF({ ...f, role: e.target.value, managerKey: '' })}>
+            {Object.entries(TEAM_ROLES).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+          </select>
+        </div>
+        {f.role !== 'deptManager' && (
+          <div>
+            <span className="label-sm">Bağlı olduğu kişi</span>
+            <select className="select" value={f.managerKey} onChange={(e) => setF({ ...f, managerKey: e.target.value })}>
+              <option value="">Seç</option>
+              {managerOptions.map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}
+            </select>
+          </div>
+        )}
+      </div>
+      {msg && <Alert tone={msg.tone} style={{ marginTop: 10 }}>{msg.text}</Alert>}
+      <div className="row mt-12">
+        <button className="btn btn-primary btn-sm" disabled={busy} onClick={save}>{busy ? 'Kaydediliyor…' : 'Ekle'}</button>
+        <button className="btn btn-secondary btn-sm" disabled={busy} onClick={() => setOpen(false)}>Vazgeç</button>
+      </div>
+    </div>
+  );
+}
 
+function TeamTree({ team, accounts, adminEmail, cdReps, onChanged }) {
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
+  const accByKey = useMemo(() => Object.fromEntries(accounts.filter((u) => accountKey(u)).map((u) => [accountKey(u), u])), [accounts]);
+
+  if (!team.defined) {
+    return (
+      <Card title="Ekip" desc="Ekip ağacı henüz oluşturulmadı. Aşağıdaki butonla verdiğin 14 kişilik ekip (1 departman müdürü, 4 bölge müdürü, 9 temsilci) kurulur; sonra istediğin gibi değiştirebilirsin.">
+        <ul className="text-sm" style={{ margin: '0 0 14px', paddingLeft: 18 }}>
+          {SEED_TEAM.map((p) => <li key={p.name}>{p.name} · {TEAM_ROLES[p.role]}{p.manager ? ` → ${p.manager}` : ''}</li>)}
+        </ul>
+        <button className="btn btn-primary" disabled={busy}
+          onClick={async () => { setBusy(true); setMsg(null); try { await seedTeam(adminEmail); onChanged(); } catch (e) { setMsg({ tone: 'danger', text: errMsg(e) }); } finally { setBusy(false); } }}>
+          {busy ? 'Oluşturuluyor…' : 'Ekibi oluştur'}
+        </button>
+        {msg && <Alert tone={msg.tone} style={{ marginTop: 10 }}>{msg.text}</Alert>}
+      </Card>
+    );
+  }
+
+  const children = (key) => team.people.filter((p) => p.managerKey === key).sort((a, b) => a.name.localeCompare(b.name, 'tr'));
+  const shown = new Set();
+  const render = (p, depth) => {
+    shown.add(p.key);
+    return (
+      <div key={p.key}>
+        <PersonRow p={p} depth={depth} account={accByKey[p.key]} team={team} adminEmail={adminEmail} onChanged={onChanged} />
+        {children(p.key).map((c) => render(c, depth + 1))}
+      </div>
+    );
+  };
+  const tree = team.dept.map((d) => render(d, 0));
+  const orphans = team.people.filter((p) => !shown.has(p.key));
+  const teamRepKeys = new Set(team.reps.map((r) => r.key));
+  const unknownInCd = cdReps.filter((r) => !teamRepKeys.has(r.key));
+
+  return (
+    <Card title="Ekip" desc="Uygulamadaki görünümler (Ekibim, bölge ekipleri) bu ağaca göre çalışır. Fotoğraflar da buradan yönetilir." flush>
+      <div>{tree}</div>
+      {orphans.length > 0 && (
+        <div>
+          <div className="text-sm" style={{ fontWeight: 800, color: 'var(--amber)', padding: '12px 16px 0' }}>Bağlı olduğu kişi eksik olanlar</div>
+          {orphans.map((p) => <PersonRow key={p.key} p={p} depth={0} account={accByKey[p.key]} team={team} adminEmail={adminEmail} onChanged={onChanged} />)}
+        </div>
+      )}
+      {unknownInCd.length > 0 && (
+        <div style={{ padding: '0 16px 12px' }}>
+          <Alert tone="warn">
+            Customer Data'da olup ekipte olmayan temsilci adları: {unknownInCd.map((r) => `${r.name} (${r.count} bayi)`).join(', ')}. Yazılış farkı varsa Customer Data'yı düzelt ya da kişiyi aynı yazılışla ekle.
+          </Alert>
+        </div>
+      )}
+      <div style={{ padding: '12px 16px 16px', borderTop: '1px solid var(--border)' }}>
+        <AddPerson team={team} adminEmail={adminEmail} onChanged={onChanged} />
+      </div>
+    </Card>
+  );
+}
+
+/* ---------- Hesaplar ---------- */
+
+function AccountRow({ u, team, isSelf, onChanged }) {
+  const [mode, setMode] = useState(null);
+  const [link, setLink] = useState(accountKey(u) || '');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
+  const role = normalizeRole(u.role);
+  const isOwnerRow = role === 'owner';
+  const person = team.byKey[accountKey(u)];
+  const active = u.active !== false;
+
+  const run = async (fn, ok) => {
+    setBusy(true); setMsg(null);
+    try { await fn(); if (ok) setMsg({ tone: 'success', text: ok }); onChanged(); } catch (e) { setMsg({ tone: 'danger', text: errMsg(e) }); } finally { setBusy(false); }
+  };
+  const saveLink = () => run(async () => {
+    const p = team.byKey[link];
+    const patch = { personKey: link || null, name: p?.name || u.name };
+    if (isOwnerRow) patch.salesRepKey = p?.role === 'rep' ? link : null;
+    else Object.assign(patch, { role: p?.role || 'rep', salesRepKey: p?.role === 'rep' ? link : null });
+    await updateDoc(doc(db, 'users', u.id), patch);
+    setMode(null);
+  }, isSelf ? 'Kaydedildi. Görmek için çıkış yapıp tekrar giriş yap.' : 'Kaydedildi.');
+
+  return (
+    <div className="list-row" style={{ opacity: active ? 1 : 0.6 }}>
+      <div className="row" style={{ flexWrap: 'nowrap', gap: 10 }}>
+        <Avatar name={u.name || u.email} src={person?.url} size={38} />
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ fontWeight: 800 }}>{u.name || '(adsız)'} {isSelf && <span className="muted" style={{ fontWeight: 600 }}>· sen</span>}</div>
+          <div className="text-xs muted" style={{ fontWeight: 600 }}>{u.email || u.id}</div>
+          <div className="row" style={{ gap: 6, marginTop: 4 }}>
+            <Badge tone={isOwnerRow ? 'danger' : undefined}>{ROLE_LABELS[role]}</Badge>
+            {!person && <Badge tone="warn">Ekipteki bir kişiye bağlı değil</Badge>}
+            {!active && <Badge tone="warn">Pasif</Badge>}
+          </div>
+        </div>
+      </div>
+      {mode !== 'link' && (
+        <div className="row mt-8" style={{ gap: 14, paddingLeft: 48 }}>
+          <button className="btn-link text-sm" disabled={busy} onClick={() => setMode('link')}>Ekipteki kişiyi seç</button>
+          {u.email && <button className="btn-link text-sm" disabled={busy} onClick={() => run(() => sendSetPasswordMail(u.email), `${u.email} adresine şifre belirleme e-postası gönderildi.`)}>Şifre e-postası gönder</button>}
+          {!isOwnerRow && !isSelf && (
+            <button className="btn-link text-sm" style={{ color: 'var(--muted)' }} disabled={busy}
+              onClick={() => (active || window.confirm('Hesap tekrar aktif yapılsın mı?')) && (!active || window.confirm(`${u.name || u.email} pasif yapılsın mı?`)) && run(() => updateDoc(doc(db, 'users', u.id), { active: !active }))}>
+              {active ? 'Pasif yap' : 'Aktif yap'}
+            </button>
+          )}
+          {!isOwnerRow && !isSelf && (
+            <button className="btn-link text-sm" style={{ color: 'var(--danger)' }} disabled={busy}
+              onClick={() => window.confirm(`${u.name || u.email} kaldırılsın mı? Uygulamaya bir daha giremez; girdiği kayıtlar adıyla birlikte geçmişte kalır.`)
+                && run(() => deleteDoc(doc(db, 'users', u.id)))}>Kaldır</button>
+          )}
+        </div>
+      )}
+      {mode === 'link' && (
+        <div className="editor" style={{ marginTop: 10 }}>
+          <span className="label-sm">Bu hesap ekipte kime ait?</span>
+          <select className="select" value={link} onChange={(e) => setLink(e.target.value)}>
+            <option value="">Kimse</option>
+            {team.people.map((p) => <option key={p.key} value={p.key}>{p.name} · {TEAM_ROLES[p.role]}</option>)}
+          </select>
+          {!isOwnerRow && <div className="text-xs muted mt-8">Hesabın görevi, seçilen kişinin ekipteki görevi olur.</div>}
+          <div className="row mt-12">
+            <button className="btn btn-primary btn-sm" disabled={busy} onClick={saveLink}>Kaydet</button>
+            <button className="btn btn-secondary btn-sm" disabled={busy} onClick={() => setMode(null)}>Vazgeç</button>
+          </div>
+        </div>
+      )}
+      {msg && <Alert tone={msg.tone} style={{ marginTop: 8 }}>{msg.text}</Alert>}
+    </div>
+  );
+}
+
+function CreateAccount({ team, accounts, adminEmail, onCreated }) {
+  const [open, setOpen] = useState(false);
+  const [f, setF] = useState({ key: '', email: '', password: '' });
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
+  const taken = new Set(accounts.filter((u) => u.active !== false).map(accountKey).filter(Boolean));
+  const free = team.people.filter((p) => !taken.has(p.key));
+
+  if (!open) return <button className="btn btn-primary btn-sm" onClick={() => { setOpen(true); setMsg(null); }}>+ Hesap aç</button>;
   const submit = async () => {
-    setMsg(null);
+    const p = team.byKey[f.key];
     const email = f.email.trim().toLowerCase();
-    if (!f.name.trim() || !email) { setMsg({ tone: 'error', text: 'Ad soyad ve e-posta zorunlu.' }); return; }
-    if (f.password && f.password.length < 6) { setMsg({ tone: 'error', text: 'Şifre en az 6 karakter olmalı.' }); return; }
-    if (f.salesRepKey && takenBy[f.salesRepKey]) { setMsg({ tone: 'error', text: 'Bu temsilci adı zaten başka bir hesaba bağlı.' }); return; }
-
-    setBusy(true);
+    if (!p || !email) { setMsg({ tone: 'danger', text: 'Kişiyi seç ve e-postasını yaz.' }); return; }
+    if (f.password && f.password.length < 6) { setMsg({ tone: 'danger', text: 'Şifre en az 6 karakter olmalı.' }); return; }
+    setBusy(true); setMsg(null);
     let uid = null;
     try {
       uid = await createAuthAccount(email, f.password || randomPassword());
       await setDoc(doc(db, 'users', uid), {
-        name: f.name.trim(),
-        email,
-        role: f.role,
-        salesRepKey: f.salesRepKey || null,
-        active: true,
-        createdAt: serverTimestamp(),
-        createdBy: adminEmail,
+        name: p.name, email, role: p.role, personKey: p.key, salesRepKey: p.role === 'rep' ? p.key : null,
+        active: true, createdAt: serverTimestamp(), createdBy: adminEmail,
       });
-      let text = `${f.name.trim()} için hesap açıldı.`;
+      let text = `${p.name} için hesap açıldı.`;
       if (!f.password) {
-        try {
-          await sendSetPasswordMail(email);
-          text += ` ${email} adresine şifre belirleme e-postası gönderildi. E-posta gelmezse spam klasörüne baktırın.`;
-        } catch (e) {
-          text += ` Ancak şifre e-postası gönderilemedi (${authMsg(e)}). Listeden "Şifre e-postası gönder" ile tekrar dene.`;
-        }
-      } else {
-        text += ' Belirlediğin şifreyi kullanıcıya ilet.';
-      }
-      setMsg({ tone: 'ok', text });
-      setF({ name: '', email: '', role: 'rep', salesRepKey: '', password: '' });
+        try { await sendSetPasswordMail(email); text += ` ${email} adresine şifre belirleme e-postası gönderildi; gelmezse spam klasörüne baktırın.`; }
+        catch (e) { text += ` Ama şifre e-postası gönderilemedi (${errMsg(e)}); listeden tekrar gönderebilirsin.`; }
+      } else text += ' Belirlediğin şifreyi kişiye ilet.';
+      setMsg({ tone: 'success', text });
+      setF({ key: '', email: '', password: '' });
       onCreated();
     } catch (e) {
-      setMsg({
-        tone: 'error',
-        text: uid
-          ? `Giriş hesabı açıldı ama profil kaydedilemedi (${e.message}). Bu kişi giriş yapamaz; Firebase Console > Authentication'dan ${email} hesabını silip tekrar dene.`
-          : authMsg(e),
-      });
-    } finally {
-      setBusy(false);
-    }
+      setMsg({ tone: 'danger', text: uid ? `Giriş hesabı açıldı ama profil kaydedilemedi (${errMsg(e)}). Firebase Console > Authentication'dan ${email} hesabını silip tekrar dene.` : errMsg(e) });
+    } finally { setBusy(false); }
   };
-
-  if (!open) {
-    return (
-      <div style={{ marginBottom: 16 }}>
-        <button style={btn(true, false)} onClick={() => setOpen(true)}>+ Yeni kullanıcı</button>
-      </div>
-    );
-  }
-
   return (
-    <section style={card}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-        <h2 className="card-title">Yeni kullanıcı</h2>
-        <button style={linkBtn} onClick={() => { setOpen(false); setMsg(null); }}>Kapat</button>
-      </div>
-      <p style={{ fontSize: 13, color: C.muted, margin: '0 0 16px' }}>
-        Şifreyi boş bırakırsan kullanıcıya kendi şifresini belirleyeceği bir e-posta gider.
-      </p>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+    <div className="editor">
+      <div className="form-grid">
         <div>
-          <label style={label}>Rol</label>
-          <select value={f.role} onChange={(e) => set('role')(e.target.value)} style={input}>
-            <option value="rep">Temsilci</option>
-            <option value="manager">Yönetici (sadece izler)</option>
+          <span className="label-sm">Ekipteki kişi</span>
+          <select className="select" value={f.key} onChange={(e) => setF({ ...f, key: e.target.value })}>
+            <option value="">Seç</option>
+            {free.map((p) => <option key={p.key} value={p.key}>{p.name} · {TEAM_ROLES[p.role]}</option>)}
           </select>
         </div>
         <div>
-          <label style={label}>Customer Data'daki temsilci adı</label>
-          <RepSelect value={f.salesRepKey} onChange={pickRep} reps={reps} takenBy={takenBy} />
+          <span className="label-sm">E-posta</span>
+          <input className="input" type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} placeholder="ornek@firma.com" autoComplete="off" />
         </div>
         <div>
-          <label style={label}>Ad soyad</label>
-          <input value={f.name} onChange={(e) => set('name')(e.target.value)} style={input} placeholder="Örn. Tuğçe Yıldırıcı" />
-        </div>
-        <div>
-          <label style={label}>E-posta</label>
-          <input type="email" value={f.email} onChange={(e) => set('email')(e.target.value)} style={input} placeholder="ornek@firma.com" autoComplete="off" />
-        </div>
-        <div>
-          <label style={label}>Şifre (isteğe bağlı)</label>
-          <input type="text" value={f.password} onChange={(e) => set('password')(e.target.value)} style={input} placeholder="Boş: e-postayla belirlesin" autoComplete="new-password" />
+          <span className="label-sm">Şifre (isteğe bağlı)</span>
+          <input className="input" type="text" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} placeholder="Boş: e-postayla belirlesin" autoComplete="new-password" />
         </div>
       </div>
-      <div style={{ marginTop: 16 }}>
-        <button style={btn(true, busy)} disabled={busy} onClick={submit}>{busy ? 'Hesap açılıyor…' : 'Hesap aç'}</button>
+      {msg && <Alert tone={msg.tone} style={{ marginTop: 10 }}>{msg.text}</Alert>}
+      <div className="row mt-12">
+        <button className="btn btn-primary btn-sm" disabled={busy} onClick={submit}>{busy ? 'Hesap açılıyor…' : 'Hesap aç'}</button>
+        <button className="btn btn-secondary btn-sm" disabled={busy} onClick={() => setOpen(false)}>Kapat</button>
       </div>
-      <Message msg={msg} />
-    </section>
-  );
-}
-
-/* ---------- Kullanıcı satırı ---------- */
-
-function UserRow({ u, reps, takenBy, isSelf, selfEmail, onChanged, photoUrl }) {
-  const [editing, setEditing] = useState(false);
-  const role = normalizeRole(u.role);
-  const isOwnerRow = role === 'owner';
-  const [f, setF] = useState({ name: u.name || '', role, salesRepKey: u.salesRepKey || '' });
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState(null);
-  const repName = reps.find((r) => r.key === u.salesRepKey)?.name || u.salesRepKey;
-  const active = u.active !== false;
-
-  const save = async () => {
-
-    if (f.salesRepKey && takenBy[f.salesRepKey] && takenBy[f.salesRepKey] !== u.id) { setMsg({ tone: 'error', text: 'Bu temsilci adı başka bir hesaba bağlı.' }); return; }
-    setBusy(true); setMsg(null);
-    try {
-      await updateDoc(doc(db, 'users', u.id), {
-        name: f.name.trim(), salesRepKey: f.salesRepKey || null,
-        ...(isOwnerRow ? {} : { role: f.role }), // sahip rolü uygulamadan değiştirilemez
-        ...(isSelf && !u.email && selfEmail ? { email: selfEmail } : {}),
-      });
-      setEditing(false);
-      setMsg({ tone: 'ok', text: isSelf ? 'Kaydedildi. Değişikliğin görünmesi için çıkış yapıp tekrar giriş yap.' : 'Kaydedildi. Kullanıcı bir sonraki girişinde değişikliği görür.' });
-      onChanged();
-    } catch (e) { setMsg({ tone: 'error', text: e.message }); } finally { setBusy(false); }
-  };
-
-  const toggleActive = async () => {
-    if (isSelf) return;
-    const next = !active;
-    if (!next && !window.confirm(`${u.name || u.email} pasif yapılsın mı? Bir sonraki girişinde sisteme alınmaz, verileri silinmez.`)) return;
-    setBusy(true); setMsg(null);
-    try {
-      await updateDoc(doc(db, 'users', u.id), { active: next });
-      onChanged();
-    } catch (e) { setMsg({ tone: 'error', text: e.message }); } finally { setBusy(false); }
-  };
-
-  const resetMail = async () => {
-    if (!u.email) return;
-    setBusy(true); setMsg(null);
-    try {
-      await sendSetPasswordMail(u.email);
-      setMsg({ tone: 'ok', text: `${u.email} adresine şifre belirleme e-postası gönderildi.` });
-    } catch (e) { setMsg({ tone: 'error', text: authMsg(e) }); } finally { setBusy(false); }
-  };
-
-  return (
-    <div style={{ padding: '14px 16px', borderTop: `1px solid ${C.border}`, opacity: active ? 1 : 0.6 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-        <div style={{ display: 'flex', gap: 12, minWidth: 0 }}>
-          <Avatar name={u.name || u.email} src={photoUrl} size={40} />
-          <div style={{ minWidth: 0 }}>
-          <div style={{ fontWeight: 800, fontSize: 15, color: C.text }}>
-            {u.name || '(adsız)'} {isSelf && <span style={{ fontWeight: 400, color: C.muted }}>· sen</span>}
-          </div>
-          <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>{u.email || (isSelf && selfEmail) || u.id}</div>
-          <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>
-            <span style={{ fontWeight: 700, color: isOwnerRow ? C.red : C.text }}>{ROLE_LABELS[role]}</span>
-            {' · '}{repName ? `Temsilci adı: ${repName}` : 'Temsilci adı bağlı değil'}
-            {!active && <span style={{ color: C.red, fontWeight: 700 }}> · Pasif</span>}
-          </div>
-          </div>
-        </div>
-        {!editing && (
-          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-            <button style={linkBtn} disabled={busy} onClick={() => setEditing(true)}>Düzenle</button>
-            {u.email && <button style={linkBtn} disabled={busy} onClick={resetMail}>Şifre e-postası gönder</button>}
-            {!isSelf && !isOwnerRow && <button style={linkBtn} disabled={busy} onClick={toggleActive}>{active ? 'Pasif yap' : 'Aktif yap'}</button>}
-          </div>
-        )}
-      </div>
-
-      {editing && (
-        <div style={{ marginTop: 12, background: C.soft, borderRadius: 8, padding: 12 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
-            <div>
-              <label style={label}>Ad soyad</label>
-              <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} style={input} />
-            </div>
-            <div>
-              <label style={label}>Rol</label>
-              {isOwnerRow ? (
-                <div style={{ ...input, background: 'var(--surface-2)', color: 'var(--muted)' }}>Sahip (değiştirilemez)</div>
-              ) : (
-                <select value={f.role} onChange={(e) => setF({ ...f, role: e.target.value })} style={input}>
-                  <option value="rep">Temsilci</option>
-                  <option value="manager">Yönetici (sadece izler)</option>
-                </select>
-              )}
-            </div>
-            <div>
-              <label style={label}>Temsilci adı</label>
-              <RepSelect value={f.salesRepKey} onChange={(v) => setF({ ...f, salesRepKey: v })} reps={reps} takenBy={takenBy} selfUid={u.id} />
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
-            <button style={btn(true, busy)} disabled={busy} onClick={save}>Kaydet</button>
-            <button style={btn(false, false)} onClick={() => { setEditing(false); setF({ name: u.name || '', role, salesRepKey: u.salesRepKey || '' }); }}>Vazgeç</button>
-          </div>
-        </div>
-      )}
-      <Message msg={msg} />
     </div>
-  );
-}
-
-/* ---------- Temsilci fotoğrafları ---------- */
-
-function RepPhotoRow({ rep, profile, hasAccount, adminEmail }) {
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState(null);
-  const name = profile?.name || titleCase(rep.name);
-
-  const onFile = async (e) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
-    setBusy(true); setMsg(null);
-    try {
-      const photo = await squareAvatar(file);
-      URL.revokeObjectURL(photo.previewUrl);
-      await saveRepPhoto(db, { key: rep.key, name, photo, by: adminEmail });
-    } catch (err) {
-      setMsg(err.code === 'permission-denied' ? 'Kaydetme izni yok. Firestore kurallarını güncellediğinden emin ol.' : err.message);
-    } finally { setBusy(false); }
-  };
-
-  const onRemove = async () => {
-    if (!window.confirm(`${name} için fotoğraf kaldırılsın mı?`)) return;
-    setBusy(true); setMsg(null);
-    try { await removeRepPhoto(db, { key: rep.key, by: adminEmail }); } catch (err) { setMsg(err.message); } finally { setBusy(false); }
-  };
-
-  return (
-    <div className="list-row">
-      <div className="row" style={{ flexWrap: 'nowrap', gap: 12 }}>
-        <Avatar name={name} src={profile?.url} size={48} />
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div className="list-row-title" style={{ whiteSpace: 'normal' }}>{name}</div>
-          <div className="list-row-meta">{rep.count} bayi{hasAccount ? '' : ' · hesabı yok'}</div>
-        </div>
-        <div className="row" style={{ gap: 14, flexWrap: 'nowrap' }}>
-          <label className="btn-link" style={{ cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.5 : 1 }}>
-            {busy ? 'Kaydediliyor…' : profile?.url ? 'Değiştir' : 'Fotoğraf ekle'}
-            <input type="file" accept="image/*" onChange={onFile} disabled={busy} style={{ display: 'none' }} />
-          </label>
-          {profile?.url && !busy && <button className="btn-link" style={{ color: 'var(--muted)' }} onClick={onRemove}>Kaldır</button>}
-        </div>
-      </div>
-      {msg && <Alert tone="danger" style={{ marginTop: 10 }}>{msg}</Alert>}
-    </div>
-  );
-}
-
-function RepPhotos({ reps, profiles, accountKeys, adminEmail }) {
-  if (!reps.length) return null;
-  const withPhoto = reps.filter((r) => profiles[r.key]?.url).length;
-  return (
-    <section className="card card-flush" style={{ marginTop: 16 }}>
-      <div style={{ padding: '16px 16px 12px' }}>
-        <div className="row" style={{ justifyContent: 'space-between' }}>
-          <h2 className="card-title">Temsilci fotoğrafları</h2>
-          <span className="text-sm" style={{ fontWeight: 700, color: withPhoto === reps.length ? 'var(--green)' : 'var(--muted)' }}>
-            {withPhoto} / {reps.length}
-          </span>
-        </div>
-        <div className="card-desc">
-          Fotoğraflar Dashboard'da, kayıtlarda ve ana sayfada görünür. Yüzün ortada olduğu bir fotoğraf seç; kare olarak kırpılır.
-        </div>
-      </div>
-      {reps.map((r) => (
-        <RepPhotoRow key={r.key} rep={r} profile={profiles[r.key]} hasAccount={accountKeys.has(r.key)} adminEmail={adminEmail} />
-      ))}
-    </section>
   );
 }
 
@@ -383,80 +383,53 @@ function RepPhotos({ reps, profiles, accountKeys, adminEmail }) {
 
 export default function UsersPage() {
   const { user } = useAuth();
-  const [users, setUsers] = useState(null);
-  const [index, setIndex] = useState(null);
+  const team = useTeam();
+  const [accounts, setAccounts] = useState(null);
+  const [cdReps, setCdReps] = useState([]);
   const [error, setError] = useState(null);
   const [reload, setReload] = useState(0);
-  const profiles = useRepProfiles(db);
 
   useEffect(() => {
     getDocs(collection(db, 'users'))
-      .then((snap) => setUsers(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
+      .then((snap) => setAccounts(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
       .catch((e) => setError(e.message));
   }, [reload]);
 
+  // Customer Data'daki temsilci adları (ekiple karşılaştırmak için)
   useEffect(() => {
-    getDealerIndex(db).then(setIndex).catch(() => setIndex({ entries: [] }));
+    getDealerIndex(db).then(({ entries }) => {
+      const m = new Map();
+      entries.forEach((e) => { if (!e.k) return; const r = m.get(e.k) || { key: e.k, name: e.r || e.k, count: 0 }; r.count++; m.set(e.k, r); });
+      setCdReps([...m.values()]);
+    }).catch(() => {});
   }, []);
 
-  // Customer Data'daki temsilciler ve bayi sayıları
-  const reps = useMemo(() => {
-    const m = new Map();
-    (index?.entries ?? []).forEach((e) => {
-      if (!e.k) return;
-      const r = m.get(e.k) || { key: e.k, name: e.k, count: 0 };
-      r.count++;
-      if (e.r === e.k) r.name = e.r; // standart yazılışı tercih et
-      m.set(e.k, r);
-    });
-    return [...m.values()].sort((a, b) => a.name.localeCompare(b.name, 'tr'));
-  }, [index]);
-
-  const takenBy = useMemo(() => {
-    const t = {};
-    (users ?? []).forEach((u) => { if (u.salesRepKey && u.active !== false) t[u.salesRepKey] = u.id; });
-    return t;
-  }, [users]);
-
-  const sorted = useMemo(() => [...(users ?? [])].sort((a, b) =>
-    (a.active === false) - (b.active === false) ||
-    (normalizeRole(a.role) === 'owner' ? 0 : 1) - (normalizeRole(b.role) === 'owner' ? 0 : 1) ||
-    (a.name || a.email || '').localeCompare(b.name || b.email || '', 'tr')), [users]);
-
-  const missingReps = reps.filter((r) => !takenBy[r.key]);
-  const accountKeys = new Set(Object.keys(takenBy));
+  const sorted = useMemo(() => [...(accounts || [])].sort((a, b) =>
+    (a.active === false) - (b.active === false)
+    || (normalizeRole(a.role) === 'owner' ? 0 : 1) - (normalizeRole(b.role) === 'owner' ? 0 : 1)
+    || (a.name || a.email || '').localeCompare(b.name || b.email || '', 'tr')), [accounts]);
+  const refresh = () => setReload((x) => x + 1);
+  const withoutAccount = team.people.filter((p) => !(accounts || []).some((u) => accountKey(u) === p.key && u.active !== false));
 
   return (
     <div className="page-narrow" style={{ maxWidth: 900 }}>
-      <PageHeader title="Kullanıcılar" />
+      <PageHeader title="Ekip ve kullanıcılar" back={{ to: '/admin', label: 'Yönetim' }} />
+      {error && <Alert tone="danger">Kullanıcılar okunamadı: {error}</Alert>}
 
-      <CreateUser reps={reps} takenBy={takenBy} adminEmail={user?.email} onCreated={() => setReload((x) => x + 1)} />
+      <TeamTree team={team} accounts={accounts || []} adminEmail={user?.email} cdReps={cdReps} onChanged={refresh} />
 
-      {error && <div style={{ ...card, color: C.red }}>Kullanıcılar okunamadı: {error}</div>}
-      {!users && !error && <p style={{ color: C.muted }}>Yükleniyor…</p>}
-
-      {users && (
-        <section style={{ ...card, padding: 0, overflow: 'hidden' }}>
-          <div style={{ padding: '14px 16px', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-            <h2 className="card-title">Hesaplar ({users.length})</h2>
-            {reps.length > 0 && (
-              <span style={{ fontSize: 13, color: missingReps.length ? C.warn : C.ok }}>
-                {missingReps.length ? `${missingReps.length} temsilcinin hesabı yok` : 'Tüm temsilcilerin hesabı var'}
-              </span>
-            )}
+      {accounts && (
+        <Card title={`Hesaplar (${accounts.length})`} className="mt-16" flush
+          actions={<span className="text-sm muted" style={{ paddingRight: 16 }}>{withoutAccount.length ? `${withoutAccount.length} kişinin hesabı yok` : 'Herkesin hesabı var'}</span>}>
+          <div style={{ padding: '0 16px 12px' }}>
+            <CreateAccount team={team} accounts={accounts} adminEmail={user?.email} onCreated={refresh} />
           </div>
-          {sorted.map((u) => (
-            <UserRow key={u.id} u={u} reps={reps} takenBy={takenBy} isSelf={u.id === user?.uid} selfEmail={user?.email} photoUrl={profiles[u.salesRepKey]?.url} onChanged={() => setReload((x) => x + 1)} />
-          ))}
-          {missingReps.length > 0 && (
-            <div style={{ padding: '12px 16px', borderTop: `1px solid ${C.border}`, background: C.soft, fontSize: 13, color: C.muted }}>
-              Hesabı olmayan temsilciler: {missingReps.map((r) => r.name).join(', ')}
-            </div>
-          )}
-        </section>
+          {sorted.map((u) => <AccountRow key={u.id} u={u} team={team} isSelf={u.id === user?.uid} onChanged={refresh} />)}
+          <div className="card-footer">
+            "Kaldır", kişinin uygulamaya girişini kapatır; girdiği kayıtlar silinmez. Giriş hesabını tamamen silmek istersen Firebase Console &gt; Authentication'dan silebilirsin.
+          </div>
+        </Card>
       )}
-
-      <RepPhotos reps={reps} profiles={profiles} accountKeys={accountKeys} adminEmail={user?.email} />
     </div>
   );
 }

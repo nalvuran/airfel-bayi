@@ -5,7 +5,7 @@ import { useLastBackup } from '../utils/backup';
 
 const items = [
   { to: '/dashboard', title: 'Dashboard', desc: 'Temsilci ve bölge bazında özet rakamlar' },
-  { to: '/admin/users', title: 'Kullanıcılar', desc: 'Hesap aç, rol ver, pasif yap; temsilci fotoğrafları' },
+  { to: '/admin/users', title: 'Ekip ve kullanıcılar', desc: 'Ekip ağacı, görevler, fotoğraflar ve hesaplar' },
   { to: '/admin/sync', title: 'Veri Yükle', desc: 'Customer Data Excel dosyasıyla bayi listesini güncelle' },
   { to: '/admin/backup', title: 'Yedek al', desc: 'Tüm verilerin bir kopyasını bilgisayarına indir', backup: true },
 ];

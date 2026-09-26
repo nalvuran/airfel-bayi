@@ -26,9 +26,10 @@ export default function Login() {
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div className="card" style={{ width: '100%', maxWidth: 400, padding: 'clamp(24px, 7vw, 40px)', boxShadow: '0 8px 32px rgba(30,30,30,0.08)' }}>
+      <div className="card" style={{ width: '100%', maxWidth: 400, padding: 'clamp(24px, 7vw, 40px)', boxShadow: '0 8px 32px var(--lift)' }}>
         <div style={{ textAlign: 'center', marginBottom: 22 }}>
-          <img src="/logo-full.png" alt="airfel — Daima senden yana" style={{ width: 190, maxWidth: '70%', height: 'auto' }} />
+          <img className="logo-light" src="/logo-full.png" alt="airfel — Daima senden yana" style={{ width: 190, maxWidth: '70%', height: 'auto' }} />
+          <img className="logo-dark" src="/logo-full-dark.png" alt="airfel — Daima senden yana" style={{ width: 190, maxWidth: '70%', height: 'auto' }} />
         </div>
         <h1 style={{ fontSize: 20, textAlign: 'center', marginBottom: 24 }}>Bayi Takip Sistemi</h1>
 

@@ -18,8 +18,13 @@ export function loadRepProfiles(db, { force } = {}) {
       snap.docs.forEach((d) => {
         const p = d.data();
         next[d.id] = {
+          key: d.id,
           name: p.name || d.id,
           url: p.photo ? URL.createObjectURL(new Blob([p.photo.toUint8Array()], { type: 'image/jpeg' })) : null,
+          // Ekip ağacı
+          inTeam: p.inTeam === true,
+          role: p.role || null,
+          managerKey: p.managerKey || null,
         };
       });
       cache = next;
@@ -62,3 +67,17 @@ export async function removeRepPhoto(db, { key, by }) {
 
 // "MUSTAFA KEMAL NALVURAN" -> "Mustafa Kemal Nalvuran"
 export const titleCase = (s) => (s || '').toLocaleLowerCase('tr-TR').replace(/(^|\s)\S/g, (c) => c.toLocaleUpperCase('tr-TR'));
+
+/* ---------- Ekip ağacı (sadece sahip değiştirir) ---------- */
+
+export async function savePerson(db, { key, name, role, managerKey, by }) {
+  await setDoc(doc(db, 'repProfiles', key), {
+    salesRepKey: key, name, role, managerKey: managerKey || null, inTeam: true, updatedAt: serverTimestamp(), updatedBy: by,
+  }, { merge: true });
+  await loadRepProfiles(db, { force: true });
+}
+
+export async function removePerson(db, { key, by }) {
+  await setDoc(doc(db, 'repProfiles', key), { inTeam: false, updatedAt: serverTimestamp(), updatedBy: by }, { merge: true });
+  await loadRepProfiles(db, { force: true });
+}

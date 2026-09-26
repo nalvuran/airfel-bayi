@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { parseCustomerData } from '../utils/importers';
 import { PageHeader } from '../components/ui';
 import { buildMissingThumbs } from '../utils/thumbs';
+import { personKey, useTeam } from '../utils/team';
 import { toIndexEntry, writeDealerIndex, rebuildDealerIndexFromFirestore, clearDealerIndexCache, loadDealerIndex, dealerHash } from '../utils/dealerIndex';
 
 const C = {
@@ -16,9 +17,9 @@ const BATCH_SIZE = 400;
 
 const card = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: 'var(--shadow)', padding: 20, marginBottom: 16 };
 const btn = (primary, disabled) => ({
-  background: disabled ? '#DCD8D3' : primary ? 'var(--red)' : 'var(--surface)',
+  background: disabled ? 'var(--disabled)' : primary ? 'var(--red)' : 'var(--surface)',
   color: primary || disabled ? '#fff' : 'var(--ink)',
-  border: `1.5px solid ${disabled ? '#DCD8D3' : primary ? 'var(--red)' : 'var(--border)'}`,
+  border: `1.5px solid ${disabled ? 'var(--disabled)' : primary ? 'var(--red)' : 'var(--border)'}`,
   borderRadius: 10, padding: '10px 16px', fontSize: 14, fontWeight: 800,
   cursor: disabled ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap',
 });
@@ -41,7 +42,7 @@ async function writeInBatches(coll, items, { merge, extra }, onProgress) {
 }
 
 function Stat({ label, value, tone }) {
-  const bg = tone === 'warn' ? C.warnBg : tone === 'ok' ? C.okBg : '#f8f7f5';
+  const bg = tone === 'warn' ? C.warnBg : tone === 'ok' ? C.okBg : 'var(--surface-2)';
   const fg = tone === 'warn' ? C.warn : tone === 'ok' ? C.ok : C.text;
   return (
     <div style={{ background: bg, borderRadius: 8, padding: '12px 16px', minWidth: 140 }}>
@@ -55,7 +56,7 @@ function Progress({ done, total }) {
   const pct = total ? Math.round((done / total) * 100) : 0;
   return (
     <div style={{ marginTop: 16 }}>
-      <div style={{ height: 8, background: '#eee', borderRadius: 4, overflow: 'hidden' }}>
+      <div style={{ height: 8, background: 'var(--surface-2)', borderRadius: 4, overflow: 'hidden' }}>
         <div style={{ width: `${pct}%`, height: '100%', background: C.red, transition: 'width .2s' }} />
       </div>
       <div style={{ fontSize: 13, color: C.muted, marginTop: 6 }}>{done} / {total} kayıt yazıldı</div>
@@ -85,6 +86,86 @@ function FilePicker({ onFile, disabled, fileName }) {
 
 /* ---------- 1) Bayi listesi ---------- */
 
+/* ---------- Değişiklik önizlemesi ---------- */
+
+const STATUS_TR = { ACTIVE: 'Aktif', SUSPEND: 'Askıda' };
+const st = (v) => STATUS_TR[v] || v || '-';
+
+function buildPreview(dealers, oldEntries, team) {
+  const old = new Map(oldEntries.map((e) => [e.i, e]));
+  const inFile = new Set(dealers.map((d) => d.id));
+  const p = { changed: 0, rep: [], status: [], manager: [], added: [], gone: [], unknown: [] };
+  dealers.forEach((d) => {
+    const o = old.get(d.id);
+    const n = d.data;
+    if (!o) { p.added.push({ n: n.name, info: `${n.city || ''} · ${n.salesRep || ''}` }); return; }
+    if (o.h !== dealerHash(n)) p.changed++;
+    if ((o.k || '') !== (n.salesRepKey || '')) p.rep.push({ n: n.name, from: o.r || '-', to: n.salesRep || '-' });
+    if ((o.s || '') !== (n.status || '')) p.status.push({ n: n.name, from: st(o.s), to: st(n.status) });
+    if (o.m !== undefined && (o.m || '') !== (n.regionManager || '')) p.manager.push({ n: n.name, from: o.m || '-', to: n.regionManager || '-' });
+  });
+  oldEntries.forEach((e) => { if (!e.gone && !inFile.has(e.i)) p.gone.push({ n: e.n, info: `${e.c || ''} · ${e.r || ''}` }); });
+  // Ekip tanımlıysa: dosyadaki temsilci ve müdür adları ekipte var mı?
+  if (team.defined) {
+    const reps = new Set(team.reps.map((x) => x.key));
+    const mgrs = new Set([...team.managers, ...team.dept].map((x) => x.key)); // bölge ve departman müdürleri
+    const seen = new Map();
+    dealers.forEach((d) => {
+      const r = d.data.salesRepKey; const m = personKey(d.data.regionManager);
+      if (r && !reps.has(r)) seen.set(`r:${r}`, { name: d.data.salesRep, kind: 'Temsilci', count: (seen.get(`r:${r}`)?.count || 0) + 1 });
+      if (m && !mgrs.has(m)) seen.set(`m:${m}`, { name: d.data.regionManager, kind: 'Bölge müdürü', count: (seen.get(`m:${m}`)?.count || 0) + 1 });
+    });
+    p.unknown = [...seen.values()];
+  }
+  return p;
+}
+
+function PreviewGroup({ title, items, render, tone }) {
+  if (!items.length) return null;
+  return (
+    <details className="preview-group">
+      <summary><span style={{ color: tone ? `var(--${tone})` : undefined }}>{title} ({items.length})</span></summary>
+      <ul>
+        {items.slice(0, 300).map((x, i) => <li key={i}>{render(x)}</li>)}
+        {items.length > 300 && <li className="muted">… ve {items.length - 300} bayi daha</li>}
+      </ul>
+    </details>
+  );
+}
+
+function ChangePreview({ p, confirm, setConfirm }) {
+  const none = !p.changed && !p.added.length && !p.gone.length;
+  return (
+    <div className="preview-box">
+      <div style={{ fontWeight: 800, marginBottom: 6 }}>Yüklemeden önce: neler değişecek?</div>
+      {none && <div className="text-sm muted">Bu dosyada değişiklik yok; yükleme bir şey yazmayacak.</div>}
+      {!none && (
+        <div className="text-sm muted mb-12">
+          {p.changed} bayinin bilgisi güncellenecek{p.added.length ? `, ${p.added.length} yeni bayi eklenecek` : ''}{p.gone.length ? `, ${p.gone.length} bayi listelerden gizlenecek` : ''}. Ayrıntılar için başlıklara dokun.
+        </div>
+      )}
+      <PreviewGroup title="Temsilcisi değişecek" items={p.rep} render={(x) => <><b>{x.n}</b>: {x.from} → <b>{x.to}</b></>} />
+      <PreviewGroup title="Durumu değişecek" items={p.status} render={(x) => <><b>{x.n}</b>: {x.from} → <b>{x.to}</b></>} />
+      <PreviewGroup title="Bölge müdürü değişecek" items={p.manager} render={(x) => <><b>{x.n}</b>: {x.from} → <b>{x.to}</b></>} />
+      <PreviewGroup title="Yeni eklenecek bayiler" items={p.added} render={(x) => <><b>{x.n}</b> · {x.info}</>} />
+      <PreviewGroup title="Dosyada olmayan, gizlenecek bayiler" items={p.gone} tone="amber" render={(x) => <><b>{x.n}</b> · {x.info}</>} />
+      {p.unknown.length > 0 && (
+        <div className="alert alert-warn mt-12">
+          <b>Ekipte tanımlı olmayan isimler var:</b>
+          <ul style={{ margin: '6px 0 8px', paddingLeft: 18 }}>
+            {p.unknown.map((u) => <li key={u.kind + u.name}>{u.kind}: "{u.name}" ({u.count} bayi)</li>)}
+          </ul>
+          Yazım hatası olabilir (fazladan boşluk, farklı harf). Dosyayı düzeltip tekrar seçebilir ya da Ekip sayfasında kişiyi bu yazılışla ekleyebilirsin.
+          <label className="check mt-8" style={{ display: 'flex' }}>
+            <input type="checkbox" checked={confirm} onChange={(e) => setConfirm(e.target.checked)} />
+            Anladım, yine de yükle
+          </label>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CustomerDataSection({ user }) {
   const [parsed, setParsed] = useState(null);
   const [fileName, setFileName] = useState('');
@@ -92,13 +173,19 @@ function CustomerDataSection({ user }) {
   const [progress, setProgress] = useState(0);
   const [msg, setMsg] = useState(null);
   const [toWrite, setToWrite] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [confirmUnknown, setConfirmUnknown] = useState(false);
+  const team = useTeam();
 
   const onFile = async (file) => {
-    setMsg(null); setState('idle'); setProgress(0); setFileName(file.name); setToWrite(null);
+    setMsg(null); setState('idle'); setProgress(0); setFileName(file.name); setToWrite(null); setPreview(null); setConfirmUnknown(false);
     try {
       const res = parseCustomerData(await file.arrayBuffer());
       if (res.error) { setParsed(null); setMsg({ tone: 'error', text: res.error }); return; }
       setParsed(res);
+      // Yazmadan önce: neler değişecek?
+      const current = await loadDealerIndex(db).catch(() => ({ entries: [], all: [] }));
+      setPreview(buildPreview(res.dealers, current.all || current.entries, team));
     } catch (e) {
       setParsed(null); setMsg({ tone: 'error', text: `Dosya okunamadı: ${e.message}` });
     }
@@ -111,8 +198,9 @@ function CustomerDataSection({ user }) {
     const onProg = (n) => { written = n; setProgress(n); };
     try {
       // Sadece bilgisi değişen bayileri yaz (günlük/haftalık yüklemede kota ve süre tasarrufu)
-      const current = await loadDealerIndex(db).catch(() => ({ entries: [] }));
-      const oldMap = new Map(current.entries.map((e) => [e.i, e]));
+      const current = await loadDealerIndex(db).catch(() => ({ entries: [], all: [] }));
+      const allOld = current.all || current.entries;
+      const oldMap = new Map(allOld.map((e) => [e.i, e]));
       const changed = parsed.dealers.filter((d) => oldMap.get(d.id)?.h !== dealerHash(d.data));
       setToWrite(changed.length);
       const n = await writeInBatches('dealers', changed,
@@ -120,7 +208,8 @@ function CustomerDataSection({ user }) {
 
       // Dizin: dosyadaki bayiler + dosyada olmayan (eski) bayiler aynen korunur
       const inFile = new Set(parsed.dealers.map((d) => d.id));
-      const kept = current.entries.filter((e) => !inFile.has(e.i)).map(({ search, ...e }) => e); // eslint-disable-line no-unused-vars
+      // Yeni dosyada olmayan bayiler silinmez, "listeden çıktı" olarak işaretlenip listelerde gizlenir
+      const kept = allOld.filter((e) => !inFile.has(e.i)).map(({ search, ...e }) => ({ ...e, gone: 1 })); // eslint-disable-line no-unused-vars
       await writeDealerIndex(db, [...parsed.dealers.map((d) => toIndexEntry(d.id, d.data)), ...kept]);
       clearDealerIndexCache();
 
@@ -135,8 +224,8 @@ function CustomerDataSection({ user }) {
       });
       setState('done');
       setMsg({ tone: 'ok', text: n
-        ? `${n} bayinin bilgisi değişmişti, güncellendi. ${parsed.dealers.length - n} bayi aynı kaldığı için yeniden yazılmadı. Toplam ${parsed.dealers.length + kept.length} bayi.`
-        : `Hiçbir bayinin bilgisi değişmemiş; yazma yapılmadı. Toplam ${parsed.dealers.length + kept.length} bayi.` });
+        ? `${n} bayinin bilgisi değişmişti, güncellendi. ${parsed.dealers.length - n} bayi aynı kaldığı için yeniden yazılmadı. Güncel listede ${parsed.dealers.length} bayi var${kept.length ? `; dosyada olmayan ${kept.length} bayi listelerden gizlendi` : ''}.`
+        : `Hiçbir bayinin bilgisi değişmemiş; yazma yapılmadı. Güncel listede ${parsed.dealers.length} bayi var${kept.length ? `; dosyada olmayan ${kept.length} bayi listelerden gizlendi` : ''}.` });
     } catch (e) {
       setState('error');
       setMsg({ tone: 'error', text: `Yazma yarıda kaldı (${written} kayıt yazıldı): ${e.message}. Aynı dosyayı tekrar yüklemek güvenli, kopya oluşmaz.` });
@@ -175,8 +264,10 @@ function CustomerDataSection({ user }) {
               Dosyada tekrar eden Platform ID var, sadece ilk satır alındı: {s.duplicateIds.map((d) => `${d.id} (${d.excelRow}. satır)`).join(', ')}
             </Message>
           )}
+          {preview && state !== 'done' && <ChangePreview p={preview} confirm={confirmUnknown} setConfirm={setConfirmUnknown} />}
           <div style={{ marginTop: 20 }}>
-            <button style={btn(true, state === 'writing')} disabled={state === 'writing'} onClick={onWrite}>
+            <button style={btn(true, state === 'writing' || (preview?.unknown.length > 0 && !confirmUnknown))}
+              disabled={state === 'writing' || (preview?.unknown.length > 0 && !confirmUnknown)} onClick={onWrite}>
               {state === 'writing' ? 'Yükleniyor…' : 'Bayi listesini güncelle'}
             </button>
           </div>

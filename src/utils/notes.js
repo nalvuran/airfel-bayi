@@ -14,12 +14,13 @@ export async function loadNotes(db, dealerId) {
     .sort((a, b) => ms(b.createdAt) - ms(a.createdAt));
 }
 
-export function addNote(db, dealerId, { text, user, profile }) {
+export function addNote(db, dealerId, { text, user, profile, role }) {
   return commitOrQueue(addDoc(collection(db, 'dealers', dealerId, 'notes'), {
     text,
     byUid: user.uid,
     byName: profile?.name || user.email,
-    byRepKey: profile?.salesRepKey || null,
+    byRepKey: profile?.salesRepKey || profile?.personKey || null,
+    byRole: role || null, // müdür notlarını ayırt etmek için
     createdAt: serverTimestamp(),
   }));
 }

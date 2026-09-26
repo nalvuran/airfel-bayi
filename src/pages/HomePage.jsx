@@ -102,7 +102,7 @@ export default function HomePage() {
       )}
 
       {followUps.length > 0 && (
-        <div className="card mb-16" style={lateCount ? { borderColor: '#F3C9CD' } : undefined}>
+        <div className="card mb-16" style={lateCount ? { borderColor: 'var(--danger-border)' } : undefined}>
           <div className="row" style={{ justifyContent: 'space-between', marginBottom: 6 }}>
             <h2 className="card-title">📅 Takiplerin</h2>
             {lateCount > 0 && <Badge tone="danger">{lateCount} gecikmiş</Badge>}

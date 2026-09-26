@@ -2,24 +2,23 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { db } from '../firebase';
-import { useAuth } from '../contexts/AuthContext';
 import { getDealerIndex, getCachedDealerIndex, fold } from '../utils/dealerIndex';
 import { Alert, Empty, PageHeader, SkeletonRows, StatusBadge, fmtNum } from '../components/ui';
 import { exportDealers } from '../utils/exportExcel';
 import { getRegistrations } from '../utils/registrationStore';
+import { useScope } from '../utils/scope';
+import ScopePicker from '../components/ScopePicker';
 
 const PAGE = 100;
 const trSort = (a, b) => a.localeCompare(b, 'tr');
 
 export default function DealersPage() {
-  const { userProfile } = useAuth();
-  const myKey = userProfile?.salesRepKey || null;
+  const sc = useScope({ rep: 'mine', owner: 'mine', regionManager: 'team', deptManager: 'all' });
 
   const [data, setData] = useState(getCachedDealerIndex());
   const [error, setError] = useState(null);
 
   const [q, setQ] = useState('');
-  const [mine, setMine] = useState(!!myKey);
   const [city, setCity] = useState('');
   const [rep, setRep] = useState('');
   const [status, setStatus] = useState('');
@@ -41,8 +40,7 @@ export default function DealersPage() {
     getDealerIndex(db).then(setData).catch((e) => setError(e.message));
   }, []);
 
-  useEffect(() => { setMine(!!myKey); }, [myKey]);
-  useEffect(() => { setLimit(PAGE); }, [q, mine, city, rep, status, segment, sort]);
+  useEffect(() => { setLimit(PAGE); }, [q, sc.scope, city, rep, status, segment, sort]);
 
   const options = useMemo(() => {
     const e = data?.entries ?? [];
@@ -54,14 +52,14 @@ export default function DealersPage() {
     if (!data) return [];
     const words = fold(q).split(' ').filter(Boolean);
     const list = data.entries.filter((e) =>
-      (!mine || e.k === myKey) &&
+      sc.matchDealer(e) &&
       (!city || e.c === city) &&
       (!rep || e.k === rep) &&
       (!status || e.s === status) &&
       (!segment || e.g === segment) &&
       words.every((w) => e.search.includes(w)));
     return list.sort(sort === 'name' ? (a, b) => trSort(a.n, b.n) : (a, b) => b.q - a.q || trSort(a.n, b.n));
-  }, [data, q, mine, myKey, city, rep, status, segment, sort]);
+  }, [data, q, sc.scope, sc.repKeys, city, rep, status, segment, sort]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const anyFilter = q || city || rep || status || segment;
   const activeFilters = [city, rep, status, segment].filter(Boolean).length + (sort !== 'sales' ? 1 : 0);
@@ -102,7 +100,7 @@ export default function DealersPage() {
             <option value="">Tüm iller</option>
             {options.cities.map((x) => <option key={x}>{x}</option>)}
           </select>
-          <select className="select" value={rep} onChange={(e) => setRep(e.target.value)} disabled={mine}>
+          <select className="select" value={rep} onChange={(e) => setRep(e.target.value)} disabled={sc.isMine}>
             <option value="">Tüm temsilciler</option>
             {options.reps.map((x) => <option key={x}>{x}</option>)}
           </select>
@@ -124,12 +122,7 @@ export default function DealersPage() {
           <button type="button" className="filters-toggle" onClick={() => setShowFilters((x) => !x)} aria-expanded={showFilters}>
             Filtreler {activeFilters > 0 && <span className="count">{activeFilters}</span>}
           </button>
-          {myKey && (
-            <label className="check">
-              <input type="checkbox" checked={mine} onChange={(e) => setMine(e.target.checked)} />
-              Sadece benim bayilerim
-            </label>
-          )}
+          <ScopePicker scope={sc.scope} options={sc.options} onChange={sc.setScope} />
           {anyFilter && <button type="button" className="btn-link" onClick={clearAll}>Filtreleri temizle</button>}
         </div>
       </div>
@@ -138,7 +131,7 @@ export default function DealersPage() {
         <div className="card">
           <Empty title="Bayi bulunamadı">
             Bu aramaya uyan bayi yok.
-            {mine && ' "Sadece benim bayilerim" açık; başka bir temsilcinin bayisini arıyorsan işareti kaldır.'}
+            {sc.scope !== 'all' && ' Başka bir temsilcinin bayisini arıyorsan "Tümü"ne geç.'}
           </Empty>
         </div>
       ) : (

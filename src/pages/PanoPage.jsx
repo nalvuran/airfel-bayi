@@ -101,7 +101,7 @@ function Comments({ post, photoOf, onCountChange }) {
 }
 
 function Post({ post, isNew, photoOf, onChanged, onOpenPhoto }) {
-  const { user, isOwner } = useAuth();
+  const { user, isOwner, canPin } = useAuth();
   const [editing, setEditing] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [error, setError] = useState('');
@@ -137,7 +137,7 @@ function Post({ post, isNew, photoOf, onChanged, onOpenPhoto }) {
                 {showComments ? 'Yorumları gizle' : post.commentCount ? `Yorumlar (${post.commentCount})` : 'Yorum yap'}
               </button>
               {mine && <button className="btn-link text-sm" style={{ color: 'var(--muted)' }} onClick={() => setEditing(true)}>Düzenle</button>}
-              {isOwner && <button className="btn-link text-sm" style={{ color: 'var(--muted)' }} onClick={() => run(() => setPinned(db, post.id, !post.pinned))}>{post.pinned ? 'Sabitlemeyi kaldır' : 'Sabitle'}</button>}
+              {canPin && <button className="btn-link text-sm" style={{ color: 'var(--muted)' }} onClick={() => run(() => setPinned(db, post.id, !post.pinned))}>{post.pinned ? 'Sabitlemeyi kaldır' : 'Sabitle'}</button>}
               {(mine || isOwner) && (
                 <button className="btn-link text-sm" style={{ color: 'var(--muted)' }}
                   onClick={() => { if (window.confirm('Yazı yorumlarıyla birlikte silinsin mi?')) run(() => removePost(db, post)); }}>Sil</button>

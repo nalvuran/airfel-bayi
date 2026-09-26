@@ -41,6 +41,7 @@ export function toIndexEntry(id, d) {
     x: d.distributor ?? '',
     // Devreye alım: [kombi24, klima24, kombi25, klima25, kombi26, klima26] (CB = kombi, AC = klima)
     v: ['fy24', 'fy25', 'fy26'].flatMap((y) => [d.sales?.[y]?.cb ?? 0, d.sales?.[y]?.ac ?? 0]),
+    m: d.regionManager ?? '',
     h: dealerHash(d),
   };
 }
@@ -106,10 +107,11 @@ export async function loadDealerIndex(db) {
   if (snap.empty) return { entries: [], updatedAt: null };
   const docs = snap.docs.map((d) => d.data()).sort((a, b) => a.part - b.part);
   if (docs.length !== docs[0].parts) throw new Error('Bayi dizini eksik görünüyor. Veri Yükle sayfasından dizini yeniden oluştur.');
-  const entries = docs.flatMap((d) => JSON.parse(d.json)).map((e) => ({
+  const all = docs.flatMap((d) => JSON.parse(d.json)).map((e) => ({
     v: null, // eski dizinde devreye alım rakamları yok; dizin yeniden oluşturulunca gelir
     ...e,
     search: fold(`${e.n} ${e.i} ${e.d} ${e.c}`),
   }));
-  return { entries, updatedAt: docs[0].updatedAt?.toDate?.() ?? null };
+  // entries: güncel Customer Data'daki bayiler. all: listeden çıkanlar dahil (geçmiş kayıtların adları için)
+  return { entries: all.filter((e) => !e.gone), all, updatedAt: docs[0].updatedAt?.toDate?.() ?? null };
 }

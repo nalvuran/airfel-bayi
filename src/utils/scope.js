@@ -17,11 +17,12 @@ export function useScope(defaults = {}, initial = null) {
     if (myRepKey) o.push({ value: 'mine', label: 'Benim' });
     if (userRole === 'regionManager') o.push({ value: 'team', label: 'Ekibim' });
     o.push({ value: 'all', label: 'Tümü' });
-    if (userRole === 'owner' || userRole === 'deptManager') {
-      team.managers.forEach((m) => o.push({ value: `mgr:${m.key}`, label: `${m.name} ekibi` }));
+    // Sahip ve müdürler bölge ekiplerini ayrı ayrı seçebilir (bölge müdürünün kendi ekibi "Ekibim" olarak zaten var)
+    if (userRole === 'owner' || userRole === 'deptManager' || userRole === 'regionManager') {
+      team.managers.filter((m) => m.key !== personKey).forEach((m) => o.push({ value: `mgr:${m.key}`, label: `${m.name} ekibi` }));
     }
     return o;
-  }, [myRepKey, userRole, team.managers]);
+  }, [myRepKey, userRole, team.managers, personKey]);
 
   const fallback = defaults[userRole] || 'all';
   const [scope, setScope] = useState(initial || fallback);

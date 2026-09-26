@@ -9,6 +9,7 @@ import { getDealerIndex } from '../utils/dealerIndex';
 import { removeRepPhoto, removePerson, savePerson, saveRepPhoto } from '../utils/repProfiles';
 import { SEED_TEAM, TEAM_ROLES, personKey, seedTeam, useTeam } from '../utils/team';
 import { squareAvatar } from '../utils/image';
+import { presenceInfo } from '../utils/presence';
 import { Alert, Avatar, Badge, Card, PageHeader } from '../components/ui';
 
 const AUTH_ERRORS = {
@@ -274,6 +275,14 @@ function AccountRow({ u, team, isSelf, onChanged }) {
         <div style={{ minWidth: 0, flex: 1 }}>
           <div style={{ fontWeight: 800 }}>{u.name || '(adsız)'} {isSelf && <span className="muted" style={{ fontWeight: 600 }}>· sen</span>}</div>
           <div className="text-xs muted" style={{ fontWeight: 600 }}>{u.email || u.id}</div>
+          {(() => {
+            const pi = presenceInfo(u);
+            return (
+              <div className="text-xs" style={{ fontWeight: 700, marginTop: 3, color: pi.tone === 'success' ? 'var(--green)' : pi.tone === 'warn' ? 'var(--amber)' : 'var(--ink-2)' }}>
+                {pi.text}{pi.days30 ? ` · son 30 günde ${pi.days30} gün kullandı` : ''}
+              </div>
+            );
+          })()}
           <div className="row" style={{ gap: 6, marginTop: 4 }}>
             <Badge tone={isOwnerRow ? 'danger' : undefined}>{ROLE_LABELS[role]}</Badge>
             {!person && <Badge tone="warn">Ekipteki bir kişiye bağlı değil</Badge>}

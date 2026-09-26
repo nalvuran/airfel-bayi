@@ -33,6 +33,9 @@ service cloud.firestore {
     match /users/{uid} {
       allow read: if signedIn() && (request.auth.uid == uid || isOwner());
       allow create: if isOwner() && request.resource.data.get('role', 'rep') in ['rep', 'regionManager', 'deptManager'];
+      // Herkes kendi profiline sadece "son görülme" bilgisini yazabilir
+      allow update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastSeenAt', 'activeDays']);
       allow update: if isOwner() && (
         (resource.data.get('role', 'rep') in ['owner', 'admin']
           && request.resource.data.get('role', 'rep') == resource.data.get('role', 'rep')

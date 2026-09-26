@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc, getDocFromCache } from 'firebase/firestore';
 import { auth, db } from '../firebase';
+import { startPresence } from '../utils/presence';
 
 const AuthContext = createContext(null);
 
@@ -35,6 +36,12 @@ export function AuthProvider({ children }) {
   const [userProfile, setUserProfile] = useState(null);
   const [authError, setAuthError] = useState('');
   const [loading, setLoading] = useState(true);
+
+  // Son görülme: oturum açık kullanıcı için
+  useEffect(() => {
+    if (!user || !userProfile) return undefined;
+    return startPresence(db, user.uid, userProfile);
+  }, [user?.uid, !!userProfile]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {

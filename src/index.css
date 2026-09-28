@@ -821,3 +821,18 @@ a.rc-title:hover { color: var(--red); }
 .sidebar-logo { display: flex !important; align-items: center; gap: 10px; text-decoration: none; }
 .side-app { font-size: 18px; padding-left: 10px; border-left: 1.5px solid var(--border-strong); line-height: 1.2; }
 .side-version { font-size: 11.5px; font-weight: 700; color: var(--faint); padding: 8px 8px 0; }
+
+/* Bayi haritası: ilçe merkezindeki gruplar ve açıklama */
+.map-group { background: none; border: none; }
+.map-group span {
+  display: flex; align-items: center; justify-content: center; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85); border: 2.5px solid #B91724; color: #B91724;
+  font: 800 12px/1 'Nunito', sans-serif; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+:root[data-theme="dark"] .map-group span { background: rgba(17, 26, 45, 0.9); border-color: #EF4B54; color: #F4F6FA; }
+.map-legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 10px; font-size: 12.5px; font-weight: 700; color: var(--muted); }
+.map-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.map-legend i { width: 11px; height: 11px; border-radius: 50%; display: inline-block; border: 1.5px solid #fff; box-shadow: 0 0 0 1px var(--border-strong); }
+.map-legend i.ring { background: transparent; border: 2.5px solid var(--red); box-shadow: none; }
+.visit-map { height: 460px; }
+@media (max-width: 767px) { .visit-map { height: 360px; } }

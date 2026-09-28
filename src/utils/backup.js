@@ -33,6 +33,7 @@ const STEPS = [
   ['notes', 'Bayi notları', () => getDocs(collectionGroup(db, 'notes'))],
   ['requests', 'Talepler', () => getDocs(collection(db, 'requests'))],
   ['followUps', 'Takipler', () => getDocs(collection(db, 'followUps'))],
+  ['dealerLocations', 'Bayi konumları', () => getDocs(collection(db, 'dealerLocations'))],
   ['posts', 'Pano yazıları', () => getDocs(collection(db, 'posts'))],
   ['comments', 'Pano yorumları', () => getDocs(collectionGroup(db, 'comments'))],
   ['snapshots', 'Yükleme geçmişi (devreye alım)', () => getDocs(collection(db, 'snapshots'))],

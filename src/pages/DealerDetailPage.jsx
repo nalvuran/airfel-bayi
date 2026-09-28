@@ -7,7 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { EditRegistration, History, OwnerActions } from '../components/RegistrationEditor';
 import DevreyeTable from '../components/DevreyeTable';
 import DealerNotes from '../components/DealerNotes';
-import { DealerBrands, DealerFollowUp, DealerRequests, TrendLine } from '../components/DealerExtras';
+import { DealerBrands, DealerFollowUp, DealerLocation, DealerRequests, TrendLine } from '../components/DealerExtras';
 import { Photo, Lightbox, SLOT_LABEL } from '../components/Photos';
 import { Alert, Badge, Card, Info, PageHeader, Skeleton, StatusBadge } from '../components/ui';
 import { clearRegistrationsCache } from './RegistrationsPage';
@@ -176,6 +176,7 @@ export default function DealerDetailPage() {
         </Card>
       )}
 
+      <DealerLocation dealer={{ i: id, n: dealer.name }} regs={regs} city={dealer.city} district={dealer.district} />
       <DealerFollowUp dealer={{ i: id, n: dealer.name }} />
       <DealerRequests dealer={{ i: id, n: dealer.name }} onOpenPhoto={setLightbox} />
       <DealerBrands regs={regs} sales={dealer.sales} />

@@ -11,6 +11,8 @@ import { loadRequests } from '../utils/requests';
 import { declineLists } from '../utils/decline';
 import { BRANDS } from '../utils/catalog';
 import { useScope } from '../utils/scope';
+import { effectiveLocation, loadDealerLocations } from '../utils/dealerLocations';
+import { approxLocation } from '../utils/geoTR';
 import { useTeam } from '../utils/team';
 import ScopePicker from '../components/ScopePicker';
 import { CoverageChart, InstallDonut, ShareGauge, VisitTrendChart } from '../components/DashCharts';
@@ -114,6 +116,8 @@ export default function DashboardPage() {
   const team = useTeam();
   const [allReps, setAllReps] = useState(false);
   const [requests, setRequests] = useState(null);
+  const [locs, setLocs] = useState(null);
+  const [mapFilter, setMapFilter] = useState('all');
   const [declineTab, setDeclineTab] = useState('silent');
   const navigate = useNavigate();
 
@@ -121,6 +125,7 @@ export default function DashboardPage() {
     getRegistrations(db).then((r) => { setRegs(r.list); setOffline(r.offline); }).catch((e) => setError(e.message));
     getDealerIndex(db).then(setIndex).catch((e) => setError(e.message));
     loadRequests(db).then(setRequests).catch(() => setRequests([]));
+    loadDealerLocations(db).then(setLocs).catch(() => setLocs({}));
   }, []);
 
   // Ana sayfadaki "Düşüşteki bayilerin" kartından gelindiyse o bölüme kaydır
@@ -256,6 +261,44 @@ export default function DashboardPage() {
     };
   }, [regs, index, scope, sc.repKeys, team, profiles]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Harita: kapsamdaki aktif bayiler (ve ziyaret edilmiş diğerleri); bilinen konum tam yerinde, bilinmeyen ilçe merkezinde
+  const mapData = useMemo(() => {
+    if (!data || !regs || !index || !locs) return null;
+    const lastReg = new Map(); const lastLocReg = new Map();
+    regs.forEach((r) => {
+      if (!r.dealerId) return;
+      if (!lastReg.has(r.dealerId)) lastReg.set(r.dealerId, r);
+      if (r.location?.lat && !lastLocReg.has(r.dealerId)) lastLocReg.set(r.dealerId, r);
+    });
+    const declineSet = new Set([...data.decline.silent, ...data.decline.declined].map((x) => x.e.i));
+    const recentLimit = Date.now() - 30 * 86400000;
+    let list = index.entries.filter(sc.matchDealer).filter((e) => e.s === 'ACTIVE' || lastReg.has(e.i));
+    if (mapFilter === 'visited') list = list.filter((e) => lastReg.has(e.i));
+    if (mapFilter === 'unvisited') list = list.filter((e) => !lastReg.has(e.i));
+    if (mapFilter === 'decline') list = list.filter((e) => declineSet.has(e.i));
+    const points = []; const groups = new Map();
+    list.forEach((e) => {
+      const last = lastReg.get(e.i);
+      const loc = effectiveLocation(locs[e.i], lastLocReg.get(e.i));
+      if (loc) {
+        points.push({ lat: loc.lat, lng: loc.lng, dealerId: e.i, name: e.n, rep: last?.salesRep, date: last?.date,
+          kind: last ? (last.date && last.date.getTime() >= recentLimit ? 'recent' : 'visited') : 'known' });
+        return;
+      }
+      const ap = approxLocation(e.c, e.d);
+      if (!ap) return;
+      const key = ap.level === 'district' ? `${e.c}|${e.d}` : e.c;
+      if (!groups.has(key)) {
+        groups.set(key, { lat: ap.lat, lng: ap.lng, level: ap.level, items: [], city: e.c,
+          label: ap.level === 'district' ? `${e.d}, ${e.c}` : e.c, search: ap.level === 'district' ? `${e.d} ${e.c}` : e.c });
+      }
+      groups.get(key).items.push({ i: e.i, n: e.n, q: e.q });
+    });
+    const g = [...groups.values()];
+    g.forEach((x) => x.items.sort((a, b) => b.q - a.q));
+    return { points, groups: g, approxCount: g.reduce((a, x) => a + x.items.length, 0) };
+  }, [data, regs, index, locs, mapFilter, sc.scope, sc.repKeys]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (error) return <div className="page"><PageHeader title="Dashboard" /><Alert tone="danger">Veriler yüklenemedi: {error}</Alert></div>;
 
   return (
@@ -369,9 +412,28 @@ export default function DashboardPage() {
             )}
           </section>
 
-          <Card title="Ziyaret haritası" desc={`${fmtNum(data.points.length)} bayi · kırmızı: son 30 gün, gri: daha eski. Konumu olmayan kayıtlar haritada görünmez.`} className="mt-16">
-            <VisitMap points={data.points} />
-          </Card>
+          <section className="card mt-16">
+            <div className="card-header">
+              <div>
+                <h2 className="card-title">Bayi haritası</h2>
+                <div className="card-desc">
+                  {mapData ? `${fmtNum(mapData.points.length)} bayi tam konumunda, ${fmtNum(mapData.approxCount)} bayi ilçe merkezinde yaklaşık olarak gösteriliyor.` : 'Yükleniyor…'}
+                </div>
+              </div>
+            </div>
+            <div className="row mb-12" style={{ gap: 8 }}>
+              {[['all', 'Tümü'], ['visited', 'Ziyaret edilenler'], ['unvisited', 'Hiç ziyaret edilmeyenler'], ['decline', 'Düşüşteki bayiler']].map(([k, l]) => (
+                <button key={k} type="button" className={`pill ${mapFilter === k ? 'active' : ''}`} onClick={() => setMapFilter(k)}>{l}</button>
+              ))}
+            </div>
+            {mapData && <VisitMap points={mapData.points} groups={mapData.groups} scope={scope} />}
+            <div className="map-legend">
+              <span><i style={{ background: '#E5484D' }} />Son 30 günde ziyaret</span>
+              <span><i style={{ background: '#8A857F' }} />Daha önce ziyaret</span>
+              <span><i style={{ background: '#3B82F6' }} />Konumu kayıtlı, ziyaret yok</span>
+              <span><i className="ring" />Konumu bilinmiyor: ilçe merkezinde bayi sayısı</span>
+            </div>
+          </section>
 
           {scope !== 'mine' && data.reps.length > 0 && (
             <section className="mt-16">

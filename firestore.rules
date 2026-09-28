@@ -139,6 +139,15 @@ service cloud.firestore {
       allow delete: if isOwner();
     }
 
+    // ---------- Elle kaydedilen bayi konumları (tek doküman: dealerLocations/all) ----------
+    match /dealerLocations/{docId} {
+      allow read: if isActive();
+      allow create, update: if canRegister() && docId == 'all'
+        && request.resource.data.keys().hasOnly(['locs', 'updatedAt'])
+        && request.resource.data.locs is map;
+      allow delete: if isOwner();
+    }
+
     // ---------- Pano ----------
     match /posts/{postId} {
       function validText() {

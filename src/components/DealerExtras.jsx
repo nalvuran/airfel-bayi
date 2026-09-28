@@ -7,6 +7,9 @@ import { addToCalendar, clearFollowUp, fmtDay, followUpState, loadOpenFollowUps,
 import { closeRequest, createRequest, loadRequests, requestAgeDays, validateRequestDraft } from '../utils/requests';
 import { declineInfo } from '../utils/decline';
 import { RequestDraftEditor, emptyDraft, marketShare } from './FeatureFields';
+import { LocationInput } from './FormFields';
+import { effectiveLocation, loadDealerLocations, saveDealerLocation } from '../utils/dealerLocations';
+import { approxLocation } from '../utils/geoTR';
 import { Photo } from './Photos';
 import { Alert, Badge, Card } from './ui';
 
@@ -246,6 +249,69 @@ export function DealerRequests({ dealer, onOpenPhoto }) {
       {[...open, ...closed].map((q) => (
         <RequestRow key={q.id} q={q} canClose={canClose(q)} onChanged={() => setReload((x) => x + 1)} onOpenPhoto={onOpenPhoto} />
       ))}
+    </Card>
+  );
+}
+
+/* ---------- Konum ---------- */
+
+export function DealerLocation({ dealer, regs, city, district }) {
+  const { user, userProfile, canRegister } = useAuth();
+  const [manual, setManual] = useState(undefined);
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
+
+  useEffect(() => { loadDealerLocations(db).then((l) => setManual(l[dealer.i] || null)).catch(() => setManual(null)); }, [dealer.i]);
+  if (manual === undefined || !regs) return null;
+
+  const lastReg = regs.find((r) => r.location?.lat);
+  const loc = effectiveLocation(manual, lastReg && { ...lastReg, date: toD(lastReg.createdAt) || lastReg.date });
+  const approx = !loc ? approxLocation(city, district) : null;
+
+  const save = async () => {
+    if (!value?.location) { setMsg({ tone: 'danger', text: 'Önce konumu al ya da bir Google Maps bağlantısı yapıştır.' }); return; }
+    setBusy(true); setMsg(null);
+    try {
+      const { queued } = await saveDealerLocation(db, { dealerId: dealer.i, value, user, profile: userProfile });
+      setManual({ lat: value.location.lat, lng: value.location.lng, by: userProfile?.name || user.email, at: Date.now() });
+      setEditing(false); setValue(null);
+      setMsg({ tone: 'success', text: queued ? 'Konum telefonda saklandı; bağlantı gelince gönderilecek.' : 'Konum kaydedildi; bayi haritada artık tam yerinde görünecek.' });
+    } catch (e) { setMsg({ tone: 'danger', text: errMsg(e) }); } finally { setBusy(false); }
+  };
+
+  return (
+    <Card title="Konum">
+      {loc ? (
+        <div className="row" style={{ justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontWeight: 800 }}>{loc.source === 'manual' ? 'Elle kaydedildi' : 'Ziyaret sırasında alındı'}</div>
+            <div className="text-xs muted" style={{ fontWeight: 600, marginTop: 2 }}>{loc.by} · {fmtDate(loc.at)}</div>
+          </div>
+          <a className="btn-link text-sm" href={`https://www.google.com/maps?q=${loc.lat},${loc.lng}`} target="_blank" rel="noreferrer">Haritada aç</a>
+        </div>
+      ) : (
+        <p className="text-sm muted" style={{ margin: 0 }}>
+          Bu bayinin tam konumu henüz kayıtlı değil{approx ? `; haritada ${approx.level === 'district' ? 'ilçe' : 'il'} merkezinde yaklaşık olarak gösteriliyor` : ''}.
+        </p>
+      )}
+      {canRegister && !editing && (
+        <button className="btn btn-secondary btn-sm mt-12" onClick={() => { setEditing(true); setMsg(null); }}>
+          {loc ? 'Konumu güncelle' : '📍 Konumu kaydet'}
+        </button>
+      )}
+      {editing && (
+        <div className="mt-12">
+          <p className="text-xs muted" style={{ margin: '0 0 8px' }}>Bayinin önündeysen "Şu anki konumumu kullan"a dokun; değilsen bayinin Google Maps bağlantısını yapıştır.</p>
+          <LocationInput value={value} onChange={setValue} />
+          <div className="row mt-12">
+            <button className="btn btn-primary btn-sm" onClick={save} disabled={busy}>{busy ? 'Kaydediliyor…' : 'Konumu kaydet'}</button>
+            <button className="btn btn-secondary btn-sm" onClick={() => { setEditing(false); setValue(null); }} disabled={busy}>Vazgeç</button>
+          </div>
+        </div>
+      )}
+      {msg && <Alert tone={msg.tone} style={{ marginTop: 10 }}>{msg.text}</Alert>}
     </Card>
   );
 }

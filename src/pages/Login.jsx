@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { sendPasswordResetEmail, signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { APP_NAME, APP_VERSION } from '../utils/version';
@@ -11,6 +11,27 @@ export default function Login() {
   const [error, setError] = useState('');
   const { authError } = useAuth();
   const [loading, setLoading] = useState(false);
+  // 'login' | 'reset' (şifremi unuttum)
+  const [mode, setMode] = useState('login');
+  const [resetSent, setResetSent] = useState(false);
+
+  const handleReset = async (e) => {
+    e.preventDefault();
+    setError(''); setLoading(true);
+    try {
+      auth.languageCode = 'tr';
+      await sendPasswordResetEmail(auth, email.trim());
+      setResetSent(true);
+    } catch (err) {
+      // Kayıtlı olmayan adreslerde de aynı mesaj: hangi adresin kayıtlı olduğu anlaşılmasın
+      if (err?.code === 'auth/user-not-found') setResetSent(true);
+      else if (err?.code === 'auth/invalid-email') setError('E-posta adresini kontrol et.');
+      else if (err?.code === 'auth/too-many-requests') setError('Çok fazla deneme yapıldı. Birkaç dakika sonra tekrar dene.');
+      else setError('Bağlantı gönderilemedi. İnternet bağlantını kontrol edip tekrar dene.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -37,6 +58,33 @@ export default function Login() {
           <div className="muted" style={{ fontSize: 14, fontWeight: 600, marginTop: 2 }}>Bayi takip sistemi</div>
         </div>
 
+        {mode === 'reset' ? (
+          <form onSubmit={handleReset} className="stack" style={{ gap: 16 }}>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 17 }}>Şifremi unuttum</div>
+              <div className="text-sm muted" style={{ marginTop: 4 }}>E-posta adresini yaz; sana yeni şifre belirleme bağlantısı gönderelim.</div>
+            </div>
+            {resetSent ? (
+              <Alert tone="success">
+                E-posta adresin sistemde kayıtlıysa şifre belirleme bağlantısı gönderildi. Bağlantı 1 saat geçerli; gelen kutunda yoksa spam klasörüne bak.
+              </Alert>
+            ) : (
+              <>
+                <div>
+                  <label className="label" htmlFor="reset-email">E-posta</label>
+                  <input id="reset-email" type="email" className="input input-lg" value={email} onChange={(e) => setEmail(e.target.value)}
+                    placeholder="ornek@airfel.com.tr" autoComplete="email" autoCapitalize="off" required autoFocus />
+                </div>
+                {error && <Alert tone="danger">{error}</Alert>}
+                <button type="submit" className="btn btn-primary btn-lg btn-block" disabled={loading}>
+                  {loading ? 'Gönderiliyor…' : 'Bağlantı gönder'}
+                </button>
+              </>
+            )}
+            <button type="button" className="btn-link" style={{ justifySelf: 'center' }}
+              onClick={() => { setMode('login'); setResetSent(false); setError(''); }}>← Girişe dön</button>
+          </form>
+        ) : (
         <form onSubmit={handleLogin} className="stack" style={{ gap: 16 }}>
           <div>
             <label className="label" htmlFor="login-email">E-posta</label>
@@ -52,7 +100,10 @@ export default function Login() {
           <button type="submit" className="btn btn-primary btn-lg btn-block" disabled={loading}>
             {loading ? 'Giriş yapılıyor…' : 'Giriş yap'}
           </button>
+          <button type="button" className="btn-link text-sm" style={{ justifySelf: 'center' }}
+            onClick={() => { setMode('reset'); setResetSent(false); setError(''); }}>Şifremi unuttum</button>
         </form>
+        )}
       </div>
     </div>
   );

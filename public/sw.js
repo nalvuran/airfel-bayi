@@ -28,6 +28,7 @@
      if (req.method !== 'GET') return;
      const url = new URL(req.url);
      if (url.origin !== self.location.origin) return; // Firebase, harita vb. dış istekler olduğu gibi geçer
+  if (url.pathname.startsWith('/api/')) return; // sunucu yardımcıları her zaman ağdan
    
      // Sayfa açılışları: önce ağ (her zaman güncel sürüm), ağ yoksa telefondaki kopya
      if (req.mode === 'navigate') {

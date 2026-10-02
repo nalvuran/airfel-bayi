@@ -21,6 +21,17 @@ export function coordsFromMapsUrl(url) {
   }
   
   export const isShortMapsLink = (url) => /goo\.gl|maps\.app/i.test(url || '');
+
+  // Kısa paylaşım bağlantısını (maps.app.goo.gl) sunucudaki yardımcıyla çözer; { lat, lng } ya da null
+  export async function resolveShortMapsLink(url) {
+    try {
+      const r = await fetch(`/api/resolve-maps?u=${encodeURIComponent(url.trim())}`);
+      if (!r.ok) return null;
+      const d = await r.json();
+      if (typeof d.lat === 'number' && typeof d.lng === 'number') return { lat: d.lat, lng: d.lng };
+      return d.url ? coordsFromMapsUrl(d.url) : null;
+    } catch { return null; }
+  }
   export const isMapsLink = (url) => /google\.[a-z.]+\/maps|maps\.google|goo\.gl|maps\.app/i.test(url || '');
   export const mapsUrlFor = (loc) => `https://www.google.com/maps?q=${loc.lat},${loc.lng}`;
   

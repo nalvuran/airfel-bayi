@@ -271,7 +271,12 @@ export function DealerLocation({ dealer, regs, city, district }) {
   const approx = !loc ? approxLocation(city, district) : null;
 
   const save = async () => {
-    if (!value?.location) { setMsg({ tone: 'danger', text: 'Önce konumu al ya da bir Google Maps bağlantısı yapıştır.' }); return; }
+    if (!value?.location) {
+      setMsg({ tone: 'danger', text: value?.mapsUrl
+        ? 'Bu bağlantıdan koordinat okunamadığı için konum kaydedilemedi. Uzun Google Maps bağlantısını yapıştır ya da "Şu anki konumumu kullan"a dokun.'
+        : 'Önce konumu al ya da bir Google Maps bağlantısı yapıştır.' });
+      return;
+    }
     setBusy(true); setMsg(null);
     try {
       const { queued } = await saveDealerLocation(db, { dealerId: dealer.i, value, user, profile: userProfile });

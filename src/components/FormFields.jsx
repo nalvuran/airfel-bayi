@@ -2,7 +2,7 @@
 // Kayıt formunda ve kayıt düzenlemede ortak kullanılan alanlar.
 import { useMemo, useState } from 'react';
 import { fold } from '../utils/dealerIndex';
-import { coordsFromMapsUrl, getGpsPosition, isMapsLink, isShortMapsLink, mapsUrlFor } from '../utils/geo';
+import { coordsFromMapsUrl, getGpsPosition, isMapsLink, isShortMapsLink, mapsUrlFor, resolveShortMapsLink } from '../utils/geo';
 import { Alert } from './ui';
 import { trTitle } from '../utils/text';
 
@@ -116,25 +116,32 @@ export function LocationInput({ value, onChange }) {
     } catch (e) { setError(e.message); } finally { setBusy(false); }
   };
 
-  const onLink = (v) => {
+  const [resolving, setResolving] = useState(false);
+  const onLink = async (v) => {
     setLink(v); setError('');
     const url = v.trim();
     if (!url) { onChange(null); return; }
     const c = coordsFromMapsUrl(url);
-    if (c) onChange({ location: c, locationSource: 'mapsLink', locationAccuracy: null, mapsUrl: url });
-    else if (isMapsLink(url)) onChange({ location: null, locationSource: 'mapsLink', locationAccuracy: null, mapsUrl: url });
-    else onChange(null);
+    if (c) { onChange({ location: c, locationSource: 'mapsLink', locationAccuracy: null, mapsUrl: url }); return; }
+    if (!isMapsLink(url)) { onChange(null); return; }
+    onChange({ location: null, locationSource: 'mapsLink', locationAccuracy: null, mapsUrl: url });
+    // Kısa paylaşım bağlantısı: koordinatı sunucudan çözmeyi dene
+    if (isShortMapsLink(url)) {
+      setResolving(true);
+      const r = await resolveShortMapsLink(url);
+      setResolving(false);
+      if (r) onChange({ location: r, locationSource: 'mapsLink', locationAccuracy: null, mapsUrl: url });
+    }
   };
 
   let status = null;
   if (!value && link.trim()) status = { tone: 'danger', text: 'Bu bir Google Maps linki gibi görünmüyor.' };
   else if (value?.locationSource === 'gps') status = { tone: 'success', text: `✓ GPS konumu alındı (±${value.locationAccuracy} m)` };
   else if (value?.location) status = { tone: 'success', text: '✓ Linkten konum okundu' };
+  else if (value && resolving) status = { tone: 'warn', text: 'Kısa bağlantıdan konum okunuyor…' };
   else if (value) status = {
     tone: 'warn',
-    text: isShortMapsLink(value.mapsUrl)
-      ? 'Link kaydedilecek. Kısa linkten koordinat okunamıyor; haritada gösterim için link kullanılacak.'
-      : 'Link kaydedilecek, ama içinden koordinat okunamadı.',
+    text: 'Bu bağlantıdan koordinat okunamadı. Google Maps\'te bayiyi açıp "Paylaş" yerine tarayıcının adres çubuğundaki uzun bağlantıyı kopyala, ya da bayinin önündeysen "Şu anki konumumu kullan"a dokun.',
   };
 
   return (

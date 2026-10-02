@@ -349,10 +349,10 @@ function CreateAccount({ team, accounts, adminEmail, onCreated }) {
         active: true, createdAt: serverTimestamp(), createdBy: adminEmail,
       });
       let text = `${p.name} için hesap açıldı.`;
-      if (!f.password) {
-        try { await sendSetPasswordMail(email); text += ` ${email} adresine şifre belirleme e-postası gönderildi; gelmezse spam klasörüne baktırın.`; }
-        catch (e) { text += ` Ama şifre e-postası gönderilemedi (${errMsg(e)}); listeden tekrar gönderebilirsin.`; }
-      } else text += ' Belirlediğin şifreyi kişiye ilet.';
+      // Şifre e-postası kendiliğinden gönderilmez: kişi şifresini giriş ekranındaki "Şifremi unuttum" ile kendisi alır
+      text += f.password
+        ? ' Belirlediğin şifreyi kişiye ilet.'
+        : ` Kişiye uygulamanın adresini (airfel-bayi.nalvuran.workers.dev) ilet; giriş ekranındaki "Şifremi unuttum"a ${email} adresini yazarak şifresini kendisi belirleyecek.`;
       setMsg({ tone: 'success', text });
       setF({ key: '', email: '', password: '' });
       onCreated();
@@ -376,7 +376,7 @@ function CreateAccount({ team, accounts, adminEmail, onCreated }) {
         </div>
         <div>
           <span className="label-sm">Şifre (isteğe bağlı)</span>
-          <input className="input" type="text" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} placeholder="Boş: e-postayla belirlesin" autoComplete="new-password" />
+          <input className="input" type="text" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} placeholder="Boş: Şifremi unuttum ile kendisi belirler" autoComplete="new-password" />
         </div>
       </div>
       {msg && <Alert tone={msg.tone} style={{ marginTop: 10 }}>{msg.text}</Alert>}

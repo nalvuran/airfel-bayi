@@ -1,6 +1,6 @@
 // src/components/Layout.jsx
 import { signOut } from 'firebase/auth';
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { auth } from '../firebase';
 import { useAuth, ROLE_LABELS } from '../contexts/AuthContext';
@@ -10,6 +10,7 @@ import { useNavCounts } from '../utils/navCounts';
 import { trTitle } from '../utils/text';
 import { useRepProfiles } from '../utils/repProfiles';
 import { db } from '../firebase';
+import { fold, getDealerIndex } from '../utils/dealerIndex';
 import { Avatar } from './ui';
 import { APP_FULL, APP_NAME } from '../utils/version';
 
@@ -65,14 +66,73 @@ function ThemeButton() {
 }
 
 // Bilgisayar: üstte her yerden bayi arama
+// Bilgisayar: üstte her yerden bayi arama; yazarken eşleşen bayiler önerilir
 function QuickSearch() {
   const [q, setQ] = useState('');
+  const [entries, setEntries] = useState(null);
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(-1);
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const { userProfile } = useAuth();
+  const myKey = userProfile?.salesRepKey || null;
+  const box = useRef(null);
+
+  // Bayi dizini ilk odaklanmada yüklenir (önbellekten, ek okuma yok)
+  const load = () => { if (!entries) getDealerIndex(db).then((idx) => setEntries(idx.entries)).catch(() => setEntries([])); };
+  useEffect(() => { setOpen(false); }, [pathname]);
+  useEffect(() => {
+    const close = (e) => { if (box.current && !box.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, []);
+
+  const { list, total } = useMemo(() => {
+    const words = fold(q).split(' ').filter(Boolean);
+    if (!entries || fold(q).replace(/\s/g, '').length < 2) return { list: [], total: 0 };
+    const all = entries.filter((e) => words.every((w) => e.search.includes(w)));
+    all.sort((a, b) => (b.k === myKey) - (a.k === myKey) || b.q - a.q);
+    return { list: all.slice(0, 8), total: all.length };
+  }, [q, entries, myKey]);
+
+  const goAll = () => { setOpen(false); navigate(`/dealers?q=${encodeURIComponent(q.trim())}`); };
+  const goDealer = (e) => { setOpen(false); setQ(''); navigate(`/dealers/${encodeURIComponent(e.i)}`); };
+  const onKey = (e) => {
+    if (!open || !list.length) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); setActive((x) => Math.min(list.length - 1, x + 1)); }
+    if (e.key === 'ArrowUp') { e.preventDefault(); setActive((x) => Math.max(-1, x - 1)); }
+    if (e.key === 'Escape') { setOpen(false); }
+  };
+
   return (
-    <form className="quick-search" role="search" onSubmit={(e) => { e.preventDefault(); navigate(`/dealers?q=${encodeURIComponent(q.trim())}`); }}>
-      <SearchIcon />
-      <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Bayi adı, Platform ID veya ilçe ara" aria-label="Bayi ara" />
-    </form>
+    <div className="qs-wrap" ref={box}>
+      <form className="quick-search" role="search" onSubmit={(e) => { e.preventDefault(); if (active >= 0 && list[active]) goDealer(list[active]); else goAll(); }}>
+        <SearchIcon />
+        <input type="search" value={q} placeholder="Bayi adı, Platform ID veya ilçe ara" aria-label="Bayi ara"
+          role="combobox" aria-expanded={open && list.length > 0} aria-controls="qs-list" aria-autocomplete="list"
+          onFocus={() => { load(); setOpen(true); }}
+          onChange={(e) => { setQ(e.target.value); setOpen(true); setActive(-1); load(); }}
+          onKeyDown={onKey} />
+      </form>
+      {open && list.length > 0 && (
+        <div className="qs-pop" id="qs-list" role="listbox">
+          {list.map((e, i) => (
+            <button key={e.i} type="button" role="option" aria-selected={i === active}
+              className={`qs-item ${i === active ? 'on' : ''}`} onMouseEnter={() => setActive(i)} onClick={() => goDealer(e)}>
+              <span className="qs-main">
+                <span className="qs-name">{e.n}</span>
+                <span className="qs-meta">{e.i.startsWith('NOID-') ? '' : `${e.i} · `}{[e.d, e.c].filter(Boolean).join(', ')}{e.k === myKey ? ' · senin bayin' : e.r ? ` · ${e.r}` : ''}</span>
+              </span>
+              <span className="qs-q num">{Number(e.q || 0).toLocaleString('tr-TR')}<small> FY26</small></span>
+            </button>
+          ))}
+          <button type="button" className="qs-all" onClick={goAll}>Tüm sonuçları gör ({total.toLocaleString('tr-TR')}) →</button>
+        </div>
+      )}
+      {open && q.trim().length >= 2 && entries && list.length === 0 && (
+        <div className="qs-pop"><div className="qs-empty">"{q.trim()}" ile eşleşen bayi yok.</div></div>
+      )}
+    </div>
   );
 }
 

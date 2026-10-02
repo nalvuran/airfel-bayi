@@ -852,3 +852,20 @@ a.rc-title:hover { color: var(--red); }
 .cal-pop span { font-size: 12px; font-weight: 600; color: var(--muted); }
 /* Takvim menüsü kartın dışına taşabilsin */
 .card:has(.cal-menu), .editor:has(.cal-menu) { overflow: visible; }
+
+/* Üst arama: yazarken öneriler */
+.qs-wrap { position: relative; flex: 1; max-width: 520px; }
+.qs-wrap .quick-search { max-width: none; }
+.qs-pop {
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 60; display: grid; padding: 6px;
+  background: var(--surface); border: 1px solid var(--border-strong); border-radius: 12px; box-shadow: 0 12px 32px var(--lift);
+}
+.qs-item { display: flex; align-items: center; gap: 12px; text-align: left; background: none; border: none; border-radius: 8px; padding: 9px 10px; cursor: pointer; color: var(--ink); font: inherit; }
+.qs-item.on { background: var(--surface-2); }
+.qs-main { min-width: 0; flex: 1; display: grid; }
+.qs-name { font-weight: 800; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qs-meta { font-size: 12px; font-weight: 600; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qs-q { font-weight: 800; font-size: 13px; flex-shrink: 0; }
+.qs-q small { color: var(--muted); font-size: 10.5px; }
+.qs-all { background: none; border: none; border-top: 1px solid var(--border); margin-top: 4px; padding: 10px; text-align: left; cursor: pointer; color: var(--red); font: inherit; font-weight: 800; font-size: 13px; }
+.qs-empty { padding: 12px; font-size: 13.5px; color: var(--muted); font-weight: 600; }

@@ -2,7 +2,7 @@
 // Marka seçici, talep taslağı düzenleyici ve takip tarihi alanı (kayıt formunda ve bayi sayfasında ortak)
 import { useState } from 'react';
 import { BRANDS, CATALOG_ITEMS, REQUEST_TYPES, TRAINING_TOPICS } from '../utils/catalog';
-import { addToCalendar, todayStr } from '../utils/followUps';
+import { openGoogle, openIcs, openOutlook, todayStr } from '../utils/followUps';
 import PhotoInput from './PhotoInput';
 
 export function Chip({ on, onClick, children, disabled }) {
@@ -143,13 +143,30 @@ export function FollowUpField({ value, onChange, dealerName, disabled }) {
           onChange={(e) => { onChange(e.target.value || null); setAdded(false); }} style={{ maxWidth: 220 }} />
         {value && <button type="button" className="btn-link text-sm" onClick={() => onChange(null)} disabled={disabled}>Temizle</button>}
       </div>
-      {value && dealerName && (
-        <button type="button" className="btn btn-secondary btn-sm mt-8" disabled={disabled}
-          onClick={() => { addToCalendar({ dealerName, date: value, url: window.location.origin }); setAdded(true); }}>
-          📅 Telefonun takvimine ekle
-        </button>
+      {value && dealerName && !disabled && (
+        <div className="mt-8"><CalendarMenu dealerName={dealerName} date={value} onDone={() => setAdded(true)} /></div>
       )}
       {added && <div className="text-xs muted mt-8">Takvim açıldı; etkinliği orada kaydetmeyi unutma.</div>}
     </div>
+  );
+}
+
+/* ---------- Takvime ekle menüsü ---------- */
+
+export function CalendarMenu({ dealerName, date, note, url, label = '📅 Takvime ekle', className = 'btn btn-secondary btn-sm', onDone }) {
+  const [open, setOpen] = useState(false);
+  const ev = { dealerName, date, note, url: url || window.location.origin };
+  const pick = (fn) => { fn(ev); setOpen(false); onDone?.(); };
+  return (
+    <span className="cal-menu">
+      <button type="button" className={className} onClick={() => setOpen((x) => !x)} aria-expanded={open}>{label} ▾</button>
+      {open && (
+        <span className="cal-pop" role="menu">
+          <button type="button" role="menuitem" onClick={() => pick(openOutlook)}><b>Outlook</b><span>Şirket hesabının takvimi</span></button>
+          <button type="button" role="menuitem" onClick={() => pick(openGoogle)}><b>Google Takvim</b><span>Gmail hesabının takvimi</span></button>
+          <button type="button" role="menuitem" onClick={() => pick(openIcs)}><b>Telefonun takvimi</b><span>Takvim dosyası (.ics)</span></button>
+        </span>
+      )}
+    </span>
   );
 }

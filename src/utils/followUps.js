@@ -64,31 +64,49 @@ export async function clearFollowUp(db, { dealer, user, profile }) {
   return res;
 }
 
-/* ---------- Telefon takvimine ekleme ---------- */
+/* ---------- Takvime ekleme: Outlook (şirket), Google Takvim, telefonun takvimi ---------- */
 
 const isApple = () => /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document;
 
-// Tarih günü saat 09:00-09:30 arası etkinlik, başlangıçta hatırlatma
-export function addToCalendar({ dealerName, date, note, url }) {
-  const d = date.replace(/-/g, '');
-  const title = `Takip: ${dealerName}`;
-  const details = [note, url].filter(Boolean).join('\n');
-  if (!isApple()) {
-    const u = 'https://calendar.google.com/calendar/render?action=TEMPLATE'
-      + `&text=${encodeURIComponent(title)}&dates=${d}T090000/${d}T093000&ctz=Europe/Istanbul`
-      + `&details=${encodeURIComponent(details)}`;
-    window.open(u, '_blank');
-    return;
-  }
-  const esc = (s) => String(s).replace(/[\\,;]/g, (m) => `\\${m}`).replace(/\n/g, '\\n');
+// Takip günü saat 09:00-09:30 arası etkinlik
+function eventOf({ dealerName, date, note, url }) {
+  return { title: `Takip: ${dealerName}`, details: [note, url].filter(Boolean).join('\n'), date, d: date.replace(/-/g, '') };
+}
+
+// Outlook (Microsoft 365 şirket hesabı): etkinlik oluşturma ekranı hazır açılır, sadece "Kaydet"e basılır
+export function openOutlook(input) {
+  const ev = eventOf(input);
+  const u = 'https://outlook.office.com/calendar/deeplink/compose?path=%2Fcalendar%2Faction%2Fcompose&rru=addevent'
+    + `&subject=${encodeURIComponent(ev.title)}&body=${encodeURIComponent(ev.details)}`
+    + `&startdt=${encodeURIComponent(`${ev.date}T09:00:00+03:00`)}&enddt=${encodeURIComponent(`${ev.date}T09:30:00+03:00`)}`;
+  window.open(u, '_blank');
+}
+
+export function openGoogle(input) {
+  const ev = eventOf(input);
+  const u = 'https://calendar.google.com/calendar/render?action=TEMPLATE'
+    + `&text=${encodeURIComponent(ev.title)}&dates=${ev.d}T090000/${ev.d}T093000&ctz=Europe/Istanbul`
+    + `&details=${encodeURIComponent(ev.details)}`;
+  window.open(u, '_blank');
+}
+
+// Telefonun takvimi: .ics dosyası (iPhone'da Takvim açılır; Android'de yüklü takvim/Outlook uygulamasıyla açılır)
+export function openIcs(input) {
+  const ev = eventOf(input);
+  const esc = (x) => String(x).replace(/[\\,;]/g, (m) => `\\${m}`).replace(/\n/g, '\\n');
   const ics = [
-    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Airfel Bayi//TR', 'BEGIN:VEVENT',
-    `UID:${d}-${Math.random().toString(36).slice(2)}@airfel-bayi`,
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Airfel Segment//TR', 'BEGIN:VEVENT',
+    `UID:${ev.d}-${Math.random().toString(36).slice(2)}@airfel-segment`,
     `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').slice(0, 15)}Z`,
-    `DTSTART;TZID=Europe/Istanbul:${d}T090000`, `DTEND;TZID=Europe/Istanbul:${d}T093000`,
-    `SUMMARY:${esc(title)}`, `DESCRIPTION:${esc(details)}`,
-    'BEGIN:VALARM', 'TRIGGER:PT0M', 'ACTION:DISPLAY', `DESCRIPTION:${esc(title)}`, 'END:VALARM',
+    `DTSTART;TZID=Europe/Istanbul:${ev.d}T090000`, `DTEND;TZID=Europe/Istanbul:${ev.d}T093000`,
+    `SUMMARY:${esc(ev.title)}`, `DESCRIPTION:${esc(ev.details)}`,
+    'BEGIN:VALARM', 'TRIGGER:PT0M', 'ACTION:DISPLAY', `DESCRIPTION:${esc(ev.title)}`, 'END:VALARM',
     'END:VEVENT', 'END:VCALENDAR',
   ].join('\r\n');
-  window.location.href = `data:text/calendar;charset=utf-8,${encodeURIComponent(ics)}`;
+  if (isApple()) { window.location.href = `data:text/calendar;charset=utf-8,${encodeURIComponent(ics)}`; return; }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([ics], { type: 'text/calendar' }));
+  a.download = `takip-${ev.date}.ics`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
 }

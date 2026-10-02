@@ -3,10 +3,10 @@ import { useEffect, useState } from 'react';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { REQUEST_STATUS, requestSummary } from '../utils/catalog';
-import { addToCalendar, clearFollowUp, fmtDay, followUpState, loadOpenFollowUps, setFollowUp, todayStr } from '../utils/followUps';
+import { clearFollowUp, fmtDay, followUpState, loadOpenFollowUps, setFollowUp, todayStr } from '../utils/followUps';
 import { closeRequest, createRequest, loadRequests, requestAgeDays, validateRequestDraft } from '../utils/requests';
 import { declineInfo } from '../utils/decline';
-import { RequestDraftEditor, emptyDraft, marketShare } from './FeatureFields';
+import { CalendarMenu, RequestDraftEditor, emptyDraft, marketShare } from './FeatureFields';
 import { LocationInput } from './FormFields';
 import { effectiveLocation, loadDealerLocations, saveDealerLocation } from '../utils/dealerLocations';
 import { approxLocation } from '../utils/geoTR';
@@ -81,7 +81,7 @@ export function DealerFollowUp({ dealer }) {
             <div className="text-xs muted" style={{ fontWeight: 600, marginTop: 2 }}>{fu.byName} kurdu{fu.note ? ` · ${fu.note}` : ''}</div>
           </div>
           <div className="row" style={{ gap: 14 }}>
-            <button className="btn-link text-sm" onClick={() => addToCalendar({ dealerName: dealer.n, date: fu.date, url: window.location.href })}>📅 Takvime ekle</button>
+            <CalendarMenu dealerName={dealer.n} date={fu.date} note={fu.note} url={window.location.href} className="btn-link text-sm" />
             {canRegister && <button className="btn-link text-sm" onClick={() => { setDate(fu.date); setEditing(true); }} disabled={busy}>Değiştir</button>}
             {canRegister && <button className="btn-link text-sm" style={{ color: 'var(--muted)' }} onClick={clear} disabled={busy}>Kapat</button>}
           </div>

@@ -839,3 +839,16 @@ a.rc-title:hover { color: var(--red); }
 
 /* Başlık içindeki açıklama ekleri olduğu gibi kalsın: "(isteğe bağlı)" */
 .opt { text-transform: none; font-weight: 600; color: var(--muted); font-size: 0.85em; }
+
+/* Takvime ekle menüsü */
+.cal-menu { position: relative; display: inline-block; }
+.cal-pop {
+  position: absolute; z-index: 30; top: calc(100% + 6px); left: 0; min-width: 230px; display: grid;
+  background: var(--surface); border: 1px solid var(--border-strong); border-radius: 12px; box-shadow: 0 8px 24px var(--lift); padding: 6px;
+}
+.cal-pop button { display: grid; gap: 1px; text-align: left; background: none; border: none; border-radius: 8px; padding: 9px 10px; cursor: pointer; color: var(--ink); font: inherit; }
+.cal-pop button:hover { background: var(--surface-2); }
+.cal-pop b { font-size: 14px; font-weight: 800; }
+.cal-pop span { font-size: 12px; font-weight: 600; color: var(--muted); }
+/* Takvim menüsü kartın dışına taşabilsin */
+.card:has(.cal-menu), .editor:has(.cal-menu) { overflow: visible; }

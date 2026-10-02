@@ -431,7 +431,7 @@ export default function DashboardPage() {
               <span><i style={{ background: '#E5484D' }} />Son 30 günde ziyaret</span>
               <span><i style={{ background: '#8A857F' }} />Daha önce ziyaret</span>
               <span><i style={{ background: '#3B82F6' }} />Konumu kayıtlı, ziyaret yok</span>
-              <span><i className="ring" />Konumu bilinmiyor: ilçe merkezinde bayi sayısı</span>
+              <span><i className="ring" />Konumu bilinmiyor: bölge, il ya da ilçede bayi sayısı (yakınlaştırdıkça ayrılır)</span>
             </div>
           </section>
 

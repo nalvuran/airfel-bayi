@@ -14,3 +14,16 @@ export function approxLocation(city, district) {
   if (d && up(district) !== 'MERKEZ') return { lat: d[0], lng: d[1], level: 'district' };
   return { lat: c._[0], lng: c._[1], level: 'city' };
 }
+
+// Coğrafi bölgeler ve harita üzerindeki merkezleri (en uzak görünümde gruplama için)
+export const REGIONS_TR = {
+  Marmara: { c: [40.55, 28.6], p: ['İSTANBUL', 'EDİRNE', 'KIRKLARELİ', 'TEKİRDAĞ', 'ÇANAKKALE', 'KOCAELİ', 'YALOVA', 'SAKARYA', 'BİLECİK', 'BURSA', 'BALIKESİR'] },
+  Ege: { c: [38.45, 28.4], p: ['İZMİR', 'MANİSA', 'AYDIN', 'DENİZLİ', 'KÜTAHYA', 'AFYONKARAHİSAR', 'UŞAK', 'MUĞLA'] },
+  Akdeniz: { c: [37.1, 33.2], p: ['ADANA', 'ANTALYA', 'BURDUR', 'HATAY', 'ISPARTA', 'MERSİN', 'KAHRAMANMARAŞ', 'OSMANİYE'] },
+  'İç Anadolu': { c: [39.3, 33.6], p: ['AKSARAY', 'ANKARA', 'ÇANKIRI', 'ESKİŞEHİR', 'KARAMAN', 'KAYSERİ', 'KIRIKKALE', 'KIRŞEHİR', 'KONYA', 'NEVŞEHİR', 'NİĞDE', 'SİVAS', 'YOZGAT'] },
+  Karadeniz: { c: [40.95, 36.4], p: ['AMASYA', 'ARTVİN', 'BARTIN', 'BAYBURT', 'BOLU', 'ÇORUM', 'DÜZCE', 'GİRESUN', 'GÜMÜŞHANE', 'KARABÜK', 'KASTAMONU', 'ORDU', 'RİZE', 'SAMSUN', 'SİNOP', 'TOKAT', 'TRABZON', 'ZONGULDAK'] },
+  'Doğu Anadolu': { c: [39.3, 41.6], p: ['AĞRI', 'ARDAHAN', 'BİNGÖL', 'BİTLİS', 'ELAZIĞ', 'ERZİNCAN', 'ERZURUM', 'HAKKARİ', 'IĞDIR', 'KARS', 'MALATYA', 'MUŞ', 'TUNCELİ', 'VAN'] },
+  'Güneydoğu Anadolu': { c: [37.6, 39.6], p: ['ADIYAMAN', 'BATMAN', 'DİYARBAKIR', 'GAZİANTEP', 'KİLİS', 'MARDİN', 'SİİRT', 'ŞANLIURFA', 'ŞIRNAK'] },
+};
+const PROVINCE_REGION = Object.fromEntries(Object.entries(REGIONS_TR).flatMap(([r, v]) => v.p.map((pp) => [pp, r])));
+export const regionOf = (city) => PROVINCE_REGION[up(city)] || null;

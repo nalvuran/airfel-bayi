@@ -7,9 +7,10 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { approxLocation } from '../utils/geoTR';
+import { REGIONS_TR, approxLocation, regionOf } from '../utils/geoTR';
 
-const DISTRICT_ZOOM = 8; // bu yakınlaştırmanın altında il düzeyinde, üstünde ilçe düzeyinde grupla
+const DISTRICT_ZOOM = 8; // bu yakınlaştırma ve üstü: ilçe düzeyinde
+const REGION_ZOOM = 4;   // bu yakınlaştırma ve altı (telefonda açılış): coğrafi bölge düzeyinde
 
 const TURKEY = [[35.8, 25.6], [42.1, 44.8]];
 const fmt = (n) => Number(n || 0).toLocaleString('tr-TR');
@@ -46,9 +47,21 @@ export default function VisitMap({ points, groups, scope }) {
     layer.current.clearLayers();
     const go = (path) => (e) => { e.preventDefault(); navigate(path); };
 
-    // Uzaktayken ilçeleri il merkezinde birleştir
+    // Uzaktayken ilçeleri il merkezinde, en uzakta da coğrafi bölgelerde birleştir
     let shown = groups;
-    if (zoom < DISTRICT_ZOOM) {
+    if (zoom <= REGION_ZOOM) {
+      const byRegion = new Map();
+      groups.forEach((g) => {
+        const r = regionOf(g.city) || g.city;
+        if (!byRegion.has(r)) {
+          const c = REGIONS_TR[r]?.c || [g.lat, g.lng];
+          byRegion.set(r, { lat: c[0], lng: c[1], level: 'region', label: REGIONS_TR[r] ? `${r} Bölgesi` : r, items: [] });
+        }
+        byRegion.get(r).items.push(...g.items);
+      });
+      shown = [...byRegion.values()];
+      shown.forEach((x) => x.items.sort((a, b) => b.q - a.q));
+    } else if (zoom < DISTRICT_ZOOM) {
       const byCity = new Map();
       groups.forEach((g) => {
         if (!byCity.has(g.city)) {
@@ -63,16 +76,20 @@ export default function VisitMap({ points, groups, scope }) {
 
     // Yaklaşık konumdaki bayiler: il ya da ilçe merkezinde sayılı halka
     shown.forEach((g) => {
-      const size = Math.round(Math.min(46, 22 + Math.sqrt(g.items.length) * 4));
+      // Halka boyutu yakınlaştırmaya göre: telefonda Türkiye geneli görünümde üst üste binmesin
+      const k = Math.sqrt(g.items.length);
+      const size = Math.round(g.level === 'region' ? Math.min(52, 30 + k * 0.6) : zoom <= 5 ? Math.min(26, 14 + k * 1.6) : zoom <= 6 ? Math.min(34, 17 + k * 2.4) : Math.min(46, 22 + k * 4));
       const icon = L.divIcon({
         className: 'map-group',
-        html: `<span style="width:${size}px;height:${size}px">${g.items.length}</span>`,
+        html: `<span style="width:${size}px;height:${size}px;font-size:${size < 20 ? 9 : size < 26 ? 10.5 : 12}px">${g.items.length.toLocaleString('tr-TR')}</span>`,
         iconSize: [size, size],
       });
       const m = L.marker([g.lat, g.lng], { icon, keyboard: true, title: `${g.label}: ${g.items.length} bayi` });
       const pop = el('div', 'min-width:200px;max-width:240px');
       pop.append(el('div', 'font-weight:800;font-size:13px', g.label));
-      pop.append(el('div', 'font-size:12px;color:#767069;margin-bottom:6px', `${fmt(g.items.length)} bayi · konum ${g.level === 'district' ? 'ilçe' : 'il'} merkezine göre yaklaşık${g.level === 'city' && zoom < DISTRICT_ZOOM ? '. İlçelere ayırmak için yakınlaştır.' : ''}`));
+      pop.append(el('div', 'font-size:12px;color:#767069;margin-bottom:6px', g.level === 'region'
+        ? `Konumu bilinmeyen ${fmt(g.items.length)} bayi`
+        : `${fmt(g.items.length)} bayi · konum ${g.level === 'district' ? 'ilçe' : 'il'} merkezine göre yaklaşık${g.level === 'city' ? '. İlçelere ayırmak için yakınlaştır.' : ''}`));
       g.items.slice(0, 5).forEach((it) => {
         const a = el('a', 'display:flex;justify-content:space-between;gap:8px;font-size:12px;font-weight:700;color:inherit;text-decoration:none;padding:3px 0;border-top:1px solid rgba(128,128,128,.2)');
         a.href = '#';
@@ -80,10 +97,17 @@ export default function VisitMap({ points, groups, scope }) {
         a.onclick = go(`/dealers/${encodeURIComponent(it.i)}`);
         pop.append(a);
       });
-      const all = el('a', 'display:inline-block;margin-top:6px;font-weight:800;font-size:12px;color:#B91724;text-decoration:none', g.items.length > 5 ? `Hepsini listede gör (${g.items.length}) →` : 'Listede gör →');
-      all.href = '#';
-      all.onclick = go(`/dealers?q=${encodeURIComponent(g.search)}&scope=${scope}`);
-      pop.append(all);
+      if (g.level === 'region') {
+        const z = el('a', 'display:inline-block;margin-top:6px;font-weight:800;font-size:12px;color:#B91724;text-decoration:none', 'İllere ayırmak için yakınlaştır →');
+        z.href = '#';
+        z.onclick = (e) => { e.preventDefault(); map.current.closePopup(); map.current.flyTo([g.lat, g.lng], REGION_ZOOM + 2); };
+        pop.append(z);
+      } else {
+        const all = el('a', 'display:inline-block;margin-top:6px;font-weight:800;font-size:12px;color:#B91724;text-decoration:none', g.items.length > 5 ? `Hepsini listede gör (${g.items.length}) →` : 'Listede gör →');
+        all.href = '#';
+        all.onclick = go(`/dealers?q=${encodeURIComponent(g.search)}&scope=${scope}`);
+        pop.append(all);
+      }
       m.bindPopup(pop);
       m.addTo(layer.current);
     });

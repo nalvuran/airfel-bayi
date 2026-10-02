@@ -836,3 +836,6 @@ a.rc-title:hover { color: var(--red); }
 .map-legend i.ring { background: transparent; border: 2.5px solid var(--red); box-shadow: none; }
 .visit-map { height: 460px; }
 @media (max-width: 767px) { .visit-map { height: 360px; } }
+
+/* Başlık içindeki açıklama ekleri olduğu gibi kalsın: "(isteğe bağlı)" */
+.opt { text-transform: none; font-weight: 600; color: var(--muted); font-size: 0.85em; }

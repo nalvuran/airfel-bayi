@@ -7,6 +7,7 @@ import { useAuth, ROLE_LABELS } from '../contexts/AuthContext';
 import { clearSyncError, useOnline, useSyncState } from '../utils/offline';
 import { useTheme } from '../utils/theme';
 import { useNavCounts } from '../utils/navCounts';
+import { trTitle } from '../utils/text';
 import { useRepProfiles } from '../utils/repProfiles';
 import { db } from '../firebase';
 import { Avatar } from './ui';
@@ -114,7 +115,7 @@ export default function Layout({ children }) {
   const tab = (key) => (tabActive[key] ? 'active' : '');
   const navItem = (l) => (
     <NavLink key={l.to} to={l.to} end={l.end}>
-      {l.icon}<span className="nav-label">{l.label}</span>
+      {l.icon}<span className="nav-label">{trTitle(l.label)}</span>
       {l.count != null && <span className={`nav-count ${l.countTone === 'red' ? 'red' : ''}`}>{l.count.toLocaleString('tr-TR')}</span>}
       {l.dot && <span className="nav-dot" aria-label="yeni" />}
     </NavLink>
@@ -155,7 +156,7 @@ export default function Layout({ children }) {
               <span className="app-name head-app">{APP_NAME}</span>
             </Link>
             <nav className="top-nav" aria-label="Ana menü">
-              {[...links, ...adminLinks].map((l) => <NavLink key={l.to} to={l.to} end={l.end}>{l.short || l.label}</NavLink>)}
+              {[...links, ...adminLinks].map((l) => <NavLink key={l.to} to={l.to} end={l.end}>{trTitle(l.short || l.label)}</NavLink>)}
             </nav>
             <div className="user-box">
               <SyncStatus />

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { BACKUP_DUE_DAYS, BACKUP_STEPS, runBackup, useLastBackup, useLastPhotoBackup } from '../utils/backup';
 import { Alert, Card, PageHeader, fmtNum } from '../components/ui';
+import { trTitle } from '../utils/text';
 
 const fmtDate = (d) => (d ? d.toLocaleDateString('tr-TR') : '');
 const mb = (b) => `${(b / 1024 / 1024).toFixed(1)} MB`;
@@ -13,7 +14,7 @@ function Choice({ name, value, current, onChange, title, desc, disabled }) {
     <label className={`choice ${active ? 'active' : ''} ${disabled ? 'disabled' : ''}`}>
       <input type="radio" name={name} value={value} checked={active} disabled={disabled} onChange={() => onChange(value)} />
       <span>
-        <span className="choice-title">{title}</span>
+        <span className="choice-title">{trTitle(title)}</span>
         {desc && <span className="choice-desc">{desc}</span>}
       </span>
     </label>

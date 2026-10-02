@@ -235,7 +235,7 @@ function CustomerDataSection({ user }) {
   const s = parsed?.stats;
   return (
     <section style={card}>
-      <h2 className="card-title">Bayi listesini güncelle</h2>
+      <h2 className="card-title">Bayi Listesini Güncelle</h2>
       <p style={{ fontSize: 14, color: C.muted, margin: '6px 0 16px' }}>
         Customer Data Excel dosyasını seç. Sadece bilgisi değişen bayiler yazılır, yeniler eklenir; uygulamada girilen bilgiler (kayıtlar, notlar, talepler) silinmez. Günlük ya da haftalık yüklemen önerilir.
       </p>
@@ -297,7 +297,7 @@ function IndexSection() {
   };
   return (
     <section style={card}>
-      <h2 className="card-title">Bayi dizinini oluştur</h2>
+      <h2 className="card-title">Bayi Dizinini Oluştur</h2>
       <p style={{ fontSize: 14, color: C.muted, margin: '6px 0 16px' }}>
         Bayiler sayfası, hızlı açılması için bayilerin özetini tek bir dizinden okur. Bayi listesi yüklendiğinde dizin kendiliğinden güncellenir; bu butona sadece dizin eksik ya da bozuk görünürse ihtiyaç var.
       </p>
@@ -336,7 +336,7 @@ function ThumbsSection({ user }) {
 
   return (
     <section style={card}>
-      <h2 className="card-title">Kart önizlemelerini oluştur</h2>
+      <h2 className="card-title">Kart Önizlemelerini Oluştur</h2>
       <p style={{ fontSize: 14, color: C.muted, margin: '6px 0 16px' }}>
         Kayıtlar sayfasındaki kartlarda fotoğrafların küçük kopyaları gösterilir. Yeni kayıtlarda bunlar kendiliğinden oluşur; bu buton, önizlemesi olmayan eski kayıtlar içindir. Tek seferlik bir işlemdir ve birkaç dakika sürebilir; bu sırada sayfayı kapatma.
       </p>

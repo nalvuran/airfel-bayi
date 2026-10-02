@@ -14,6 +14,7 @@ import { declineLists } from '../utils/decline';
 import { lastSeenPosts, loadPosts } from '../utils/posts';
 import { useScope } from '../utils/scope';
 import { REQUEST_TYPES, requestSummary } from '../utils/catalog';
+import { trTitle } from '../utils/text';
 
 /* ---------- Simgeler ---------- */
 const I = ({ children }) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{children}</svg>;
@@ -33,7 +34,7 @@ function HCard({ to, icon, tone, title, desc, badge, footer, children }) {
       <Link to={to} className="hcard-head">
         <span className={`hcard-icon ${tone || ''}`}>{icon}</span>
         <span style={{ minWidth: 0, flex: 1 }}>
-          <span className="hcard-title">{title}{badge}</span>
+          <span className="hcard-title">{trTitle(title)}{badge}</span>
           <span className="hcard-desc">{desc}</span>
         </span>
         <span className="hcard-chev" aria-hidden="true">›</span>
@@ -48,7 +49,7 @@ function Kpi({ to, value, label, sub, tone }) {
   return (
     <Link to={to} className={`hero-kpi ${tone ? `t-${tone}` : ''}`}>
       <span className="hero-kpi-value num">{value}</span>
-      <span className="hero-kpi-label">{label}</span>
+      <span className="hero-kpi-label">{trTitle(label)}</span>
       {sub && <span className="hero-kpi-sub">{sub}</span>}
     </Link>
   );

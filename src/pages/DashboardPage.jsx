@@ -17,6 +17,7 @@ import { useTeam } from '../utils/team';
 import ScopePicker from '../components/ScopePicker';
 import { CoverageChart, InstallDonut, ShareGauge, VisitTrendChart } from '../components/DashCharts';
 import { Alert, Avatar, Badge, Card, Empty, PageHeader, Skeleton, fmtNum } from '../components/ui';
+import { trTitle } from '../utils/text';
 
 const MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
 const fmtDate = (d) => (d ? d.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit' }) : '');
@@ -28,7 +29,7 @@ function Tile({ label, value, sub, tone, to }) {
   const body = (
     <>
       <div className="stat-value">{value}</div>
-      <div className="stat-label">{label}</div>
+      <div className="stat-label">{trTitle(label)}</div>
       {sub && <div className="text-xs muted" style={{ marginTop: 6, fontWeight: 600 }}>{sub}</div>}
       {to && <span className="stat-go" aria-hidden="true">›</span>}
     </>
@@ -335,7 +336,7 @@ export default function DashboardPage() {
             <section className="card span-2">
               <div className="card-header">
                 <div>
-                  <h2 className="card-title">Haftalık ziyaretler</h2>
+                  <h2 className="card-title">Haftalık Ziyaretler</h2>
                   <div className="card-desc">Son 12 hafta. Bir çubuğa dokununca o haftanın kayıtları açılır.</div>
                 </div>
                 <div className="trend-now">
@@ -347,7 +348,7 @@ export default function DashboardPage() {
                 onPick={(w) => navigate(`/registrations?from=${w.from}&to=${w.to}&scope=${scope}`)} />
             </section>
             <section className="card">
-              <h2 className="card-title">Kurulum durumu</h2>
+              <h2 className="card-title">Kurulum Durumu</h2>
               <div className="card-desc mb-12">Tabela ve stant talepleri</div>
               <InstallDonut
                 center={{ value: fmtNum(data.pending), label: 'bekleyen' }}
@@ -360,7 +361,7 @@ export default function DashboardPage() {
             </section>
             {data.coverage.length > 0 && (
               <section className="card span-2">
-                <h2 className="card-title">Temsilcilerin bayi kapsaması</h2>
+                <h2 className="card-title">Temsilcilerin Bayi Kapsaması</h2>
                 <div className="card-desc mb-12">Aktif bayilerinin yüzde kaçı en az bir kez ziyaret edildi. Bir çubuğa dokununca o temsilcinin ziyaret edilmemiş bayileri açılır.</div>
                 <CoverageChart
                   rows={data.coverage.map((r) => ({ ...r, team: scope === 'all' ? r.team : undefined }))}
@@ -368,7 +369,7 @@ export default function DashboardPage() {
               </section>
             )}
             <section className="card">
-              <h2 className="card-title">Tahmini pazar payı</h2>
+              <h2 className="card-title">Tahmini Pazar Payı</h2>
               <div className="card-desc mb-12">Rakip adedi girilmiş bayilerde, Airfel FY25 devreye alımına göre.</div>
               {data.share ? (
                 <>
@@ -400,7 +401,7 @@ export default function DashboardPage() {
 
           <section className="mt-16">
             <div className="row" style={{ justifyContent: 'space-between', marginBottom: 10 }}>
-              <h2 className="card-title">Son ziyaretler</h2>
+              <h2 className="card-title">Son Ziyaretler</h2>
               <Link to="/registrations" className="btn-link text-sm">Tümünü gör</Link>
             </div>
             {data.recent.length === 0 ? <div className="card"><Empty title="Henüz ziyaret yok" /></div> : (
@@ -415,7 +416,7 @@ export default function DashboardPage() {
           <section className="card mt-16">
             <div className="card-header">
               <div>
-                <h2 className="card-title">Bayi haritası</h2>
+                <h2 className="card-title">Bayi Haritası</h2>
                 <div className="card-desc">
                   {mapData ? `${fmtNum(mapData.points.length)} bayi tam konumunda, ${fmtNum(mapData.approxCount)} bayi ilçe merkezinde yaklaşık olarak gösteriliyor.` : 'Yükleniyor…'}
                 </div>
@@ -464,7 +465,7 @@ export default function DashboardPage() {
           <section id="dusus" className="card mt-16" style={{ scrollMarginTop: 80 }}>
             <div className="card-header">
               <div>
-                <h2 className="card-title">Düşüşteki bayiler</h2>
+                <h2 className="card-title">Düşüşteki Bayiler</h2>
                 <div className="card-desc">
                   {declineTab === 'silent'
                     ? 'Geçen mali yıl en az 10 adet devreye alım yapmış, bu mali yıl (1 Nisan\'dan beri) hiç yapmamış aktif bayiler.'

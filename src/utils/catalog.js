@@ -3,7 +3,8 @@
 
 export const BRANDS = [
   'Airfel', 'Demirdöküm', 'Vaillant', 'Bosch', 'Baymak', 'ECA', 'Buderus', 'Viessmann',
-  'Ariston', 'Protherm', 'Daikin', 'Mitsubishi', 'Arçelik / Beko', 'Vestel', 'Samsung', 'LG',
+  'Ariston', 'Protherm', 'Daikin', 'Mitsubishi Heavy', 'Mitsubishi Electric', 'Arçelik / Beko', 'Vestel',
+  'Samsung', 'LG', 'Altus', 'Gree', 'Regal', 'Hantech', 'York', 'Sigma',
 ];
 
 export const REQUEST_TYPES = {

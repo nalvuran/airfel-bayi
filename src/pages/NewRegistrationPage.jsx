@@ -132,12 +132,12 @@ export default function NewRegistrationPage() {
       <Card title="Görüşme">
         <div className="stack">
           <div>
-            <label className="label" htmlFor="f-contact">Görüşülen kişi (ad soyad)<Req /></label>
+            <label className="label" htmlFor="f-contact">Görüşülen Kişi (ad soyad)<Req /></label>
             <input id="f-contact" className="input input-lg" value={f.contactName} onChange={(e) => set('contactName')(e.target.value)} autoComplete="off" />
           </div>
           {dealer && (
             <div className="info-grid" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px' }}>
-              <div><div className="info-label">Firma ünvanı</div><div className="info-value">{dealer.n}</div></div>
+              <div><div className="info-label">Firma Ünvanı</div><div className="info-value">{dealer.n}</div></div>
               <div><div className="info-label">Distribütör</div><div className="info-value">{dealer.x || '-'}</div></div>
             </div>
           )}
@@ -172,7 +172,7 @@ export default function NewRegistrationPage() {
         <BrandPicker value={brands.brands} other={brands.other} qty={brands.qty} otherQty={brands.otherQty} onChange={setBrands} disabled={saving} />
       </Card>
 
-      <Card title="Bayinin talebi var mı?" desc="Katalog, eğitim, servis sorunu ya da başka bir talep. Yoksa boş bırak.">
+      <Card title={<>Bayinin Talebi Var mı? <span className="opt">(isteğe bağlı)</span></>} desc="Katalog, eğitim, servis sorunu ya da başka bir talep. Yoksa boş bırak.">
         {drafts.map((d) => (
           <RequestDraftEditor key={d.key} draft={d} disabled={saving}
             onChange={(nd) => setDrafts((x) => x.map((y) => (y.key === d.key ? nd : y)))}
@@ -184,7 +184,7 @@ export default function NewRegistrationPage() {
         </button>
       </Card>
 
-      <Card title="Tekrar uğra (isteğe bağlı)"
+      <Card title={<>Tekrar Uğra <span className="opt">(isteğe bağlı)</span></>}
         desc={openFollowUp
           ? `Bu bayi için ${openFollowUp.date.split('-').reverse().join('.')} tarihli bir takip vardı; bu kayıtla kapanacak. İstersen yeni bir tarih seç.`
           : 'Bu bayiye tekrar uğraman gereken bir tarih varsa seç; ana sayfanda hatırlatılır.'}>

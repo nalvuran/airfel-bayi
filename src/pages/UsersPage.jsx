@@ -110,7 +110,7 @@ function PersonRow({ p, depth, account, team, adminEmail, onChanged }) {
             </div>
             {f.role !== 'deptManager' && (
               <div>
-                <span className="label-sm">Bağlı olduğu kişi</span>
+                <span className="label-sm">Bağlı Olduğu Kişi</span>
                 <select className="select" value={f.managerKey} onChange={(e) => setF({ ...f, managerKey: e.target.value })}>
                   <option value="">Seç</option>
                   {managerOptions.filter((m) => m.key !== p.key).map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}
@@ -156,7 +156,7 @@ function AddPerson({ team, adminEmail, onChanged }) {
     <div className="editor">
       <div className="form-grid">
         <div>
-          <span className="label-sm">Ad soyad (Customer Data'daki yazılışla aynı)</span>
+          <span className="label-sm">Ad Soyad (Customer Data'daki yazılışla aynı)</span>
           <input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Örn. Sinan Aydın" />
         </div>
         <div>
@@ -167,7 +167,7 @@ function AddPerson({ team, adminEmail, onChanged }) {
         </div>
         {f.role !== 'deptManager' && (
           <div>
-            <span className="label-sm">Bağlı olduğu kişi</span>
+            <span className="label-sm">Bağlı Olduğu Kişi</span>
             <select className="select" value={f.managerKey} onChange={(e) => setF({ ...f, managerKey: e.target.value })}>
               <option value="">Seç</option>
               {managerOptions.map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}
@@ -309,7 +309,7 @@ function AccountRow({ u, team, isSelf, onChanged }) {
       )}
       {mode === 'link' && (
         <div className="editor" style={{ marginTop: 10 }}>
-          <span className="label-sm">Bu hesap ekipte kime ait?</span>
+          <span className="label-sm">Bu Hesap Ekipte Kime Ait?</span>
           <select className="select" value={link} onChange={(e) => setLink(e.target.value)}>
             <option value="">Kimse</option>
             {team.people.map((p) => <option key={p.key} value={p.key}>{p.name} · {TEAM_ROLES[p.role]}</option>)}
@@ -364,7 +364,7 @@ function CreateAccount({ team, accounts, adminEmail, onCreated }) {
     <div className="editor">
       <div className="form-grid">
         <div>
-          <span className="label-sm">Ekipteki kişi</span>
+          <span className="label-sm">Ekipteki Kişi</span>
           <select className="select" value={f.key} onChange={(e) => setF({ ...f, key: e.target.value })}>
             <option value="">Seç</option>
             {free.map((p) => <option key={p.key} value={p.key}>{p.name} · {TEAM_ROLES[p.role]}</option>)}

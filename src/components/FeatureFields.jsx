@@ -30,12 +30,14 @@ export function BrandPicker({ value = [], other = '', qty = {}, otherQty = null,
     <div>
       <div className="chips">
         {BRANDS.map((b) => <Chip key={b} on={value.includes(b)} onClick={() => toggle(b)} disabled={disabled}>{b}</Chip>)}
+        {/* Listeden çıkarılmış ama önceki kayıtta seçili markalar (ör. eski "Mitsubishi") kaybolmasın */}
+        {value.filter((b) => !BRANDS.includes(b)).map((b) => <Chip key={b} on onClick={() => toggle(b)} disabled={disabled}>{b}</Chip>)}
       </div>
       <input className="input mt-8" value={other} disabled={disabled} maxLength={120}
         onChange={(e) => emit({ other: e.target.value, ...(e.target.value.trim() ? {} : { otherQty: null }) })} placeholder="Listede olmayan markalar (isteğe bağlı)" />
       {(rivals.length > 0 || other.trim()) && (
         <div className="qty-box mt-12">
-          <div className="label-sm">Yıllık yaklaşık satış adedi (isteğe bağlı)</div>
+          <div className="label-sm">Yıllık Yaklaşık Satış Adedi (isteğe bağlı)</div>
           {rivals.map((b) => (
             <label key={b} className="qty-row">
               <span>{b}</span>
@@ -99,7 +101,7 @@ export function RequestDraftEditor({ draft, onChange, onRemove, disabled }) {
 
       {draft.type === 'catalog' && (
         <div className="mt-12">
-          <span className="label-sm">Hangi kataloglar? (birden fazla seçilebilir)</span>
+          <span className="label-sm">Hangi Kataloglar? (birden fazla seçilebilir)</span>
           <div className="chips">
             {Object.entries(CATALOG_ITEMS).map(([k, l]) => (
               <Chip key={k} on={draft.items.includes(k)} disabled={disabled}
@@ -110,7 +112,7 @@ export function RequestDraftEditor({ draft, onChange, onRemove, disabled }) {
       )}
       {draft.type === 'training' && (
         <div className="mt-12">
-          <span className="label-sm">Eğitim konusu</span>
+          <span className="label-sm">Eğitim Konusu</span>
           <div className="chips">
             {Object.entries(TRAINING_TOPICS).map(([k, l]) => (
               <Chip key={k} on={draft.topic === k} disabled={disabled} onClick={() => set({ topic: k })}>{l}</Chip>

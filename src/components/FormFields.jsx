@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { fold } from '../utils/dealerIndex';
 import { coordsFromMapsUrl, getGpsPosition, isMapsLink, isShortMapsLink, mapsUrlFor } from '../utils/geo';
 import { Alert } from './ui';
+import { trTitle } from '../utils/text';
 
 export const Req = () => <span className="req"> *</span>;
 
@@ -64,7 +65,7 @@ export function YesNo({ label, value, onChange }) {
   };
   return (
     <div>
-      <span className="label">{label}<Req /></span>
+      <span className="label">{trTitle(label)}<Req /></span>
       <div style={{ display: 'flex', gap: 10 }}>
         <button type="button" style={b(value === true, true)} onClick={() => onChange(true)} aria-pressed={value === true}>Evet</button>
         <button type="button" style={b(value === false, false)} onClick={() => onChange(false)} aria-pressed={value === false}>Hayır</button>

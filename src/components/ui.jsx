@@ -1,6 +1,7 @@
 // src/components/ui.jsx
 // Tüm sayfalarda kullanılan ortak arayüz bileşenleri. Görünüm index.css'teki sınıflardan gelir.
 import { Link } from 'react-router-dom';
+import { trTitle } from '../utils/text';
 
 const cx = (...a) => a.filter(Boolean).join(' ');
 
@@ -10,7 +11,7 @@ export function PageHeader({ title, subtitle, back, actions }) {
       {back && <Link to={back.to} className="back-link">← {back.label}</Link>}
       <div className="page-header">
         <div style={{ minWidth: 0 }}>
-          <h1 className="page-title">{title}</h1>
+          <h1 className="page-title">{trTitle(title)}</h1>
           {subtitle && <div className="page-subtitle">{subtitle}</div>}
         </div>
         {actions && <div className="row">{actions}</div>}
@@ -25,7 +26,7 @@ export function Card({ title, desc, actions, flush, className, children, ...rest
       {(title || actions) && (
         <div className="card-header" style={flush ? { padding: '14px 16px 0' } : undefined}>
           <div>
-            {title && <h2 className="card-title">{title}</h2>}
+            {title && <h2 className="card-title">{trTitle(title)}</h2>}
             {desc && <div className="card-desc">{desc}</div>}
           </div>
           {actions}
@@ -49,7 +50,7 @@ export function Stat({ value, label, tone }) {
   return (
     <div className={cx('stat', tone && `stat-${tone}`)}>
       <div className="stat-value">{value}</div>
-      <div className="stat-label">{label}</div>
+      <div className="stat-label">{trTitle(label)}</div>
     </div>
   );
 }
@@ -57,7 +58,7 @@ export function Stat({ value, label, tone }) {
 export function Info({ label, children }) {
   return (
     <div>
-      <div className="info-label">{label}</div>
+      <div className="info-label">{trTitle(label)}</div>
       <div className="info-value">{children || '-'}</div>
     </div>
   );

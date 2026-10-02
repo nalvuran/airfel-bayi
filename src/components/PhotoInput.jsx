@@ -2,6 +2,7 @@
 // Tek bir fotoğraf alanı. input'ta "capture" olmadığı için telefon hem kamerayı hem galeriyi sunar.
 import { useEffect, useId, useState } from 'react';
 import { compressImage } from '../utils/image';
+import { trTitle } from '../utils/text';
 
 
 export default function PhotoInput({ label, value, onChange, required, disabled }) {
@@ -28,7 +29,7 @@ export default function PhotoInput({ label, value, onChange, required, disabled 
 
   return (
     <div>
-      <div className="label">{label}{required && <span className="req"> *</span>}</div>
+      <div className="label">{trTitle(label)}{required && <span className="req"> *</span>}</div>
       <label htmlFor={id} style={value ? { ...box, padding: 0 } : box}>
         {busy && 'Fotoğraf hazırlanıyor…'}
         {!busy && value && <img src={value.previewUrl} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}

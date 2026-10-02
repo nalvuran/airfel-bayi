@@ -84,7 +84,7 @@ export function EditRegistration({ r, onDone, onCancel }) {
       <div className="editor-title">Kaydı düzenle</div>
       <div className="stack">
         <div>
-          <label className="label" htmlFor={`c-${r.id}`}>Görüşülen kişi</label>
+          <label className="label" htmlFor={`c-${r.id}`}>Görüşülen Kişi</label>
           <input id={`c-${r.id}`} className="input input-lg" value={f.contactName} onChange={(e) => set('contactName')(e.target.value)} />
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
@@ -101,7 +101,7 @@ export function EditRegistration({ r, onDone, onCancel }) {
           <input id={`e-${r.id}`} type="email" className="input input-lg" value={f.email} onChange={(e) => set('email')(e.target.value)} autoCapitalize="off" />
         </div>
         <div>
-          <span className="label">Bayide hangi markalar var?</span>
+          <span className="label">Bayide Hangi Markalar Var?</span>
           <BrandPicker value={brands.brands} other={brands.other} qty={brands.qty} otherQty={brands.otherQty} onChange={setBrands} disabled={saving} />
         </div>
         <div>

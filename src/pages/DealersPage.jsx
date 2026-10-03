@@ -6,6 +6,7 @@ import { db } from '../firebase';
 import { getDealerIndex, getCachedDealerIndex, fold } from '../utils/dealerIndex';
 import { Alert, Empty, PageHeader, SkeletonRows, StatusBadge, fmtNum } from '../components/ui';
 import { exportDealers } from '../utils/exportExcel';
+import { loadDealerLocations } from '../utils/dealerLocations';
 import { getRegistrations } from '../utils/registrationStore';
 import { useScope } from '../utils/scope';
 import ScopePicker from '../components/ScopePicker';
@@ -27,17 +28,21 @@ export default function DealersPage() {
   // Ziyaret durumu: '' | 'unvisited' | 'visited' (kayıtlardan hesaplanır, gerektiğinde yüklenir)
   const [visit, setVisit] = useState(params.get('visit') || '');
   const [visited, setVisited] = useState(null);
+  // Konum durumu: '' | 'missing' | 'known' (ziyaret kayıtlarındaki ve elle kaydedilen konumlardan)
+  const [loc, setLoc] = useState(params.get('loc') || '');
+  const [located, setLocated] = useState(null);
   const [segment, setSegment] = useState('');
   const [sort, setSort] = useState('sales');
   const [limit, setLimit] = useState(PAGE);
-  const [showFilters, setShowFilters] = useState(!!(params.get('visit') || params.get('rep') || params.get('status')));
+  const [showFilters, setShowFilters] = useState(!!(params.get('visit') || params.get('rep') || params.get('status') || params.get('loc')));
   const [exporting, setExporting] = useState(false);
 
   const onExport = async () => {
     setExporting(true);
     try {
       const { list } = await getRegistrations(db);
-      await exportDealers(filtered, list);
+      const locs = await loadDealerLocations(db).catch(() => ({}));
+      await exportDealers(filtered, list, locs);
     } catch (e) { window.alert(`Excel hazırlanamadı: ${e.message}`); } finally { setExporting(false); }
   };
 
@@ -45,7 +50,13 @@ export default function DealersPage() {
     getDealerIndex(db).then(setData).catch((e) => setError(e.message));
   }, []);
 
-  useEffect(() => { setLimit(PAGE); }, [q, sc.scope, city, rep, status, segment, sort, visit]);
+  useEffect(() => { setLimit(PAGE); }, [q, sc.scope, city, rep, status, segment, sort, visit, loc]);
+  useEffect(() => {
+    if (!loc || located) return;
+    Promise.all([getRegistrations(db), loadDealerLocations(db).catch(() => ({}))])
+      .then(([{ list }, locs]) => setLocated(new Set([...list.filter((r) => r.location?.lat).map((r) => r.dealerId), ...Object.keys(locs)])))
+      .catch(() => setLocated(new Set()));
+  }, [loc, located]);
   // Üst çubuktaki aramadan yeni bir kelime gelince
   useEffect(() => { if (params.get('q') !== null) setQ(params.get('q')); }, [params]);
   useEffect(() => {
@@ -69,13 +80,14 @@ export default function DealersPage() {
       (!status || e.s === status) &&
       (!segment || e.g === segment) &&
       (!visit || !visited || (visit === 'unvisited' ? !visited.has(e.i) : visited.has(e.i))) &&
+      (!loc || !located || (loc === 'missing' ? !located.has(e.i) : located.has(e.i))) &&
       words.every((w) => e.search.includes(w)));
     return list.sort(sort === 'name' ? (a, b) => trSort(a.n, b.n) : (a, b) => b.q - a.q || trSort(a.n, b.n));
-  }, [data, q, sc.scope, sc.repKeys, city, rep, status, segment, sort, visit, visited]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [data, q, sc.scope, sc.repKeys, city, rep, status, segment, sort, visit, visited, loc, located]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const anyFilter = q || city || rep || status || segment || visit;
-  const activeFilters = [city, rep, status, segment, visit].filter(Boolean).length + (sort !== 'sales' ? 1 : 0);
-  const clearAll = () => { setQ(''); setCity(''); setRep(''); setStatus(''); setSegment(''); setVisit(''); };
+  const anyFilter = q || city || rep || status || segment || visit || loc;
+  const activeFilters = [city, rep, status, segment, visit, loc].filter(Boolean).length + (sort !== 'sales' ? 1 : 0);
+  const clearAll = () => { setQ(''); setCity(''); setRep(''); setStatus(''); setSegment(''); setVisit(''); setLoc(''); };
 
   if (error) return <div className="page"><Alert tone="danger">{error}</Alert></div>;
 
@@ -129,6 +141,11 @@ export default function DealersPage() {
             <option value="">Ziyaret durumu: tümü</option>
             <option value="unvisited">Hiç ziyaret edilmemiş</option>
             <option value="visited">En az bir kez ziyaret edilmiş</option>
+          </select>
+          <select className="select" value={loc} onChange={(e) => setLoc(e.target.value)}>
+            <option value="">Konum durumu: tümü</option>
+            <option value="missing">Konumu eksik</option>
+            <option value="known">Konumu kayıtlı</option>
           </select>
           <select className="select" value={sort} onChange={(e) => setSort(e.target.value)}>
             <option value="sales">FY26 devreye alıma göre</option>

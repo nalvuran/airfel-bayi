@@ -76,7 +76,8 @@ export function exportRegistrations(regs, dealers) {
   return download(rows, 'Kayıtlar', `airfel-kayitlar-${today()}.xlsx`);
 }
 
-export function exportDealers(entries, regs) {
+export function exportDealers(entries, regs, locs = {}) {
+  const located = new Set([...regs.filter((r) => r.location?.lat).map((r) => r.dealerId), ...Object.keys(locs)]);
   const visits = new Map();
   regs.forEach((r) => {
     if (!r.dealerId) return;
@@ -101,6 +102,7 @@ export function exportDealers(entries, regs) {
       'FY26 segment': e.f,
       'Ziyaret sayısı': v?.count || 0,
       'Son ziyaret': v?.last || '',
+      'Konum kayıtlı': located.has(e.i) ? 'Evet' : 'Hayır',
       'Uygulamada aç': appLink(e.i),
     };
   });

@@ -3,7 +3,6 @@ import { sendPasswordResetEmail, signInWithEmailAndPassword } from 'firebase/aut
 import { auth } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { APP_NAME, APP_VERSION } from '../utils/version';
-import { logActivity } from '../utils/activity';
 import { Alert } from '../components/ui';
 
 export default function Login() {
@@ -40,7 +39,7 @@ export default function Login() {
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email.trim(), password);
-      logActivity('auth.login');
+      try { sessionStorage.setItem('airfel.justLoggedIn', '1'); } catch { /* yok say */ }
     } catch {
       setError('E-posta veya şifre hatalı.');
     } finally {

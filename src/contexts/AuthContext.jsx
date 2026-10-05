@@ -3,7 +3,7 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc, getDocFromCache } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { startPresence } from '../utils/presence';
-import { setActivityActor } from '../utils/activity';
+import { logActivity, setActivityActor } from '../utils/activity';
 
 const AuthContext = createContext(null);
 
@@ -71,6 +71,10 @@ export function AuthProvider({ children }) {
         setUserRole(normalizeRole(profile.role));
         setUserProfile(profile);
         setActivityActor({ uid: firebaseUser.uid, name: profile.name || firebaseUser.email, role: normalizeRole(profile.role) });
+        // Giriş kaydı, kişinin adı belli olduktan sonra yazılır
+        try {
+          if (sessionStorage.getItem('airfel.justLoggedIn')) { sessionStorage.removeItem('airfel.justLoggedIn'); logActivity('auth.login'); }
+        } catch { /* yok say */ }
         setUser(firebaseUser);
       } catch {
         // Profil ne sunucudan ne telefondan okunabildi: oturumu kapatmadan hata göster, bağlantı gelince tekrar denenir

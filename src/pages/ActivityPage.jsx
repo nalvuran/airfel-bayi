@@ -1,6 +1,7 @@
 // src/pages/ActivityPage.jsx — Hareket günlüğü (sadece sahip)
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { ACTIVITY_TYPES, RETENTION_DAYS, loadActivity, purgeOldActivity } from '../utils/activity';
 import { fold, getDealerIndex } from '../utils/dealerIndex';
@@ -23,6 +24,7 @@ export default function ActivityPage() {
   const [rows, setRows] = useState(null);
   const [cursor, setCursor] = useState({ last: null, more: false });
   const [names, setNames] = useState(new Map());
+  const [people0, setPeople0] = useState(new Map()); // uid → ad soyad
   const [error, setError] = useState('');
   const [busyMore, setBusyMore] = useState(false);
   const [who, setWho] = useState('');
@@ -35,6 +37,7 @@ export default function ActivityPage() {
     purgeOldActivity().catch(() => {});
     loadActivity().then((r) => { setRows(r.rows); setCursor({ last: r.last, more: r.more }); }).catch((e) => setError(e.code === 'permission-denied' ? 'İzin hatası. Firestore kurallarını yayınladığından emin ol.' : e.message));
     getDealerIndex(db).then((idx) => setNames(new Map((idx.all || idx.entries).map((e) => [e.i, e.n])))).catch(() => {});
+    getDocs(collection(db, 'users')).then((snap) => setPeople0(new Map(snap.docs.map((d) => [d.id, d.data().name || d.data().email])))).catch(() => {});
   }, []);
 
   const more = async () => {
@@ -43,11 +46,13 @@ export default function ActivityPage() {
     finally { setBusyMore(false); }
   };
 
-  const people = useMemo(() => [...new Set((rows || []).map((r) => r.byName).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'tr')), [rows]);
+  // Satırlardaki adı hesap listesindeki güncel adla değiştir (giriş anında e-postayla yazılmış eski satırlar için)
+  const rowsN = useMemo(() => (rows || []).map((r) => ({ ...r, byName: people0.get(r.byUid) || r.byName })), [rows, people0]);
+  const people = useMemo(() => [...new Set(rowsN.map((r) => r.byName).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'tr')), [rowsN]);
   const filtered = useMemo(() => {
     const since = period ? Date.now() - Number(period) * 86400000 : 0;
     const words = fold(q).split(' ').filter(Boolean);
-    return (rows || []).filter((r) => {
+    return rowsN.filter((r) => {
       if (who && r.byName !== who) return false;
       if (group && ACTIVITY_TYPES[r.type]?.group !== group) return false;
       if (since && (!r.date || r.date.getTime() < since)) return false;
@@ -57,15 +62,15 @@ export default function ActivityPage() {
       }
       return true;
     });
-  }, [rows, who, group, period, q, names]);
+  }, [rowsN, who, group, period, q, names]);
 
   // Son 7 gün: kişi başına işlem sayısı
   const weekly = useMemo(() => {
     const since = Date.now() - 7 * 86400000;
     const m = new Map();
-    (rows || []).forEach((r) => { if (r.date && r.date.getTime() >= since && r.type !== 'auth.login') m.set(r.byName, (m.get(r.byName) || 0) + 1); });
+    rowsN.forEach((r) => { if (r.date && r.date.getTime() >= since && r.type !== 'auth.login') m.set(r.byName, (m.get(r.byName) || 0) + 1); });
     return [...m.entries()].sort((a, b) => b[1] - a[1]);
-  }, [rows]);
+  }, [rowsN]);
 
   const byDay = useMemo(() => {
     const m = new Map();

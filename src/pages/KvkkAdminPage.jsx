@@ -14,7 +14,12 @@ export default function KvkkAdminPage() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(null);
 
-  const reload = () => loadKvkk().then((k) => { setKvkk(k); setText(k?.text || KVKK_DRAFT); }).catch((e) => setMsg({ tone: 'danger', text: e.message }));
+  const reload = () => loadKvkk().then((k) => { setKvkk(k); setText(k?.text || KVKK_DRAFT); }).catch((e) => {
+    setText((t) => t || KVKK_DRAFT); // okunamasa da taslak gelsin
+    setMsg({ tone: 'danger', text: e.code === 'permission-denied'
+      ? 'Firestore kuralları güncel değil: metin okunamadı. Kuralları yayınladıktan sonra sayfayı yenile.'
+      : `Metin okunamadı: ${e.message}` });
+  });
   useEffect(() => {
     reload();
     getDocs(collection(db, 'users')).then((s) => setUsers(s.docs.map((d) => ({ id: d.id, ...d.data() })).filter((u) => u.active !== false))).catch(() => {});

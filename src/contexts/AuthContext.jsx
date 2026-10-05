@@ -3,6 +3,7 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc, getDocFromCache } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { startPresence } from '../utils/presence';
+import { setActivityActor } from '../utils/activity';
 
 const AuthContext = createContext(null);
 
@@ -69,6 +70,7 @@ export function AuthProvider({ children }) {
         setAuthError('');
         setUserRole(normalizeRole(profile.role));
         setUserProfile(profile);
+        setActivityActor({ uid: firebaseUser.uid, name: profile.name || firebaseUser.email, role: normalizeRole(profile.role) });
         setUser(firebaseUser);
       } catch {
         // Profil ne sunucudan ne telefondan okunabildi: oturumu kapatmadan hata göster, bağlantı gelince tekrar denenir

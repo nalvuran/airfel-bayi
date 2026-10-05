@@ -869,3 +869,18 @@ a.rc-title:hover { color: var(--red); }
 .qs-q small { color: var(--muted); font-size: 10.5px; }
 .qs-all { background: none; border: none; border-top: 1px solid var(--border); margin-top: 4px; padding: 10px; text-align: left; cursor: pointer; color: var(--red); font: inherit; font-weight: 800; font-size: 13px; }
 .qs-empty { padding: 12px; font-size: 13.5px; color: var(--muted); font-weight: 600; }
+
+/* Hareket günlüğü */
+.act-day { font-size: 13px; font-weight: 800; color: var(--ink-2); margin: 0 0 8px 2px; }
+.act-row { display: flex; align-items: flex-start; gap: 10px; padding: 11px 16px; border-top: 1px solid var(--border); }
+.act-row:first-child { border-top: none; }
+.act-time { font-size: 12.5px; font-weight: 800; color: var(--muted); width: 40px; flex-shrink: 0; padding-top: 6px; }
+.act-main { font-size: 14px; line-height: 1.4; padding-top: 4px; }
+.act-main a { color: var(--red); font-weight: 700; text-decoration: none; }
+.act-detail { font-size: 12.5px; color: var(--muted); font-weight: 600; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.act-tag { font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 10px; background: var(--surface-2); color: var(--muted); flex-shrink: 0; margin-top: 4px; }
+.act-tag.g-kayıt { background: var(--klima-soft); color: var(--klima); }
+.act-tag.g-talep { background: var(--amber-soft); color: var(--amber); }
+.act-tag.g-yönetim { background: var(--red-soft); color: var(--red); }
+.act-tag.g-excel { background: var(--green-soft); color: var(--green); }
+@media (max-width: 767px) { .act-row { padding: 10px 12px; gap: 8px; } .act-tag { display: none; } }

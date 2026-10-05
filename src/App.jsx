@@ -18,6 +18,7 @@ const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 // Veri Yükle, Excel okuma kütüphanesini içerdiği için sadece açıldığında yüklenir
 const SyncPage = lazy(() => import('./pages/SyncPage'));
 const BackupPage = lazy(() => import('./pages/BackupPage'));
+const ActivityPage = lazy(() => import('./pages/ActivityPage'));
 
 function PrivateRoute({ children }) {
   const { user } = useAuth();
@@ -58,6 +59,7 @@ function AppRoutes() {
                 <Route path="/my-dealers" element={<Navigate to="/registrations" replace />} />
                 <Route path="/admin" element={<AdminRoute><AdminMenuPage /></AdminRoute>} />
                 <Route path="/admin/backup" element={<AdminRoute><Suspense fallback={null}><BackupPage /></Suspense></AdminRoute>} />
+                <Route path="/admin/activity" element={<AdminRoute><Suspense fallback={null}><ActivityPage /></Suspense></AdminRoute>} />
                 <Route path="/admin/users" element={<AdminRoute><UsersPage /></AdminRoute>} />
                 <Route path="/admin/sync" element={<AdminRoute><Suspense fallback={<div className="page"><div className="page-subtitle">Yükleniyor…</div></div>}><SyncPage /></Suspense></AdminRoute>} />
               </Routes>

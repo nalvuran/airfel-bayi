@@ -6,6 +6,7 @@ import {
 } from 'firebase/firestore';
 import { commitOrQueue } from './offline';
 import { addPhoto } from './registrations';
+import { logActivity } from './activity';
 
 export const POST_MAX = 2000;
 const SEEN_KEY = 'airfel.panoSeen';
@@ -35,7 +36,7 @@ export function invalidatePosts() { cache = null; }
 const author = (user, profile) => ({ byUid: user.uid, byName: profile?.name || user.email, byRepKey: profile?.salesRepKey || null });
 
 // photo: isteğe bağlı, compressImage çıktısı. Fotoğraf ayrı dokümanda, yazıyla aynı işlemde yazılır.
-export async function addPost(db, { text, photo, user, profile }) {
+async function addPost__(db, { text, photo, user, profile }) {
   const batch = writeBatch(db);
   const ref = doc(collection(db, 'posts'));
   const photoInfo = photo ? addPhoto(batch, db, ref.id, 'post', photo, user.uid) : null;
@@ -46,15 +47,15 @@ export async function addPost(db, { text, photo, user, profile }) {
   const res = await commitOrQueue(batch.commit());
   invalidatePosts(); return res;
 }
-export async function editPost(db, id, text) {
+async function editPost__(db, id, text) {
   const res = await commitOrQueue(updateDoc(doc(db, 'posts', id), { text, editedAt: serverTimestamp() }));
   invalidatePosts(); return res;
 }
-export async function setPinned(db, id, pinned) {
+async function setPinned__(db, id, pinned) {
   const res = await commitOrQueue(updateDoc(doc(db, 'posts', id), { pinned, pinnedAt: pinned ? serverTimestamp() : null }));
   invalidatePosts(); return res;
 }
-export async function removePost(db, post) {
+async function removePost__(db, post) {
   // Önce yorumlar ve fotoğraf, sonra yazı
   const comments = await getDocs(collection(db, 'posts', post.id, 'comments'));
   const batch = writeBatch(db);
@@ -69,7 +70,7 @@ export async function loadComments(db, postId) {
   const snap = await getDocs(collection(db, 'posts', postId, 'comments'));
   return snap.docs.map(row).sort((a, b) => (a.date?.getTime() ?? 0) - (b.date?.getTime() ?? 0));
 }
-export async function addComment(db, { postId, text, user, profile }) {
+async function addComment__(db, { postId, text, user, profile }) {
   const batch = writeBatch(db);
   batch.set(doc(collection(db, 'posts', postId, 'comments')), { text, ...author(user, profile), createdAt: serverTimestamp() });
   batch.update(doc(db, 'posts', postId), { commentCount: increment(1) });
@@ -79,7 +80,7 @@ export async function addComment(db, { postId, text, user, profile }) {
 export async function editComment(db, postId, id, text) {
   return commitOrQueue(updateDoc(doc(db, 'posts', postId, 'comments', id), { text, editedAt: serverTimestamp() }));
 }
-export async function removeComment(db, postId, id) {
+async function removeComment__(db, postId, id) {
   const batch = writeBatch(db);
   batch.delete(doc(db, 'posts', postId, 'comments', id));
   batch.update(doc(db, 'posts', postId), { commentCount: increment(-1) });
@@ -103,4 +104,36 @@ export function linkify(text) {
   }
   if (last < text.length) parts.push({ t: text.slice(last) });
   return parts;
+}
+
+/* ---------- Hareket günlüğü: işlem başarılı olunca günlüğe yaz ---------- */
+export async function addPost(db, args) {
+  const res = await addPost__(db, args);
+  logActivity('post.add', { detail: `${args.photo ? '📷 ' : ''}${args.text}` });
+  return res;
+}
+export async function editPost(db, id, text) {
+  const res = await editPost__(db, id, text);
+  logActivity('post.edit', { detail: text });
+  return res;
+}
+export async function setPinned(db, id, pinned) {
+  const res = await setPinned__(db, id, pinned);
+  logActivity(pinned ? 'post.pin' : 'post.unpin', {});
+  return res;
+}
+export async function removePost(db, post) {
+  const res = await removePost__(db, post);
+  logActivity('post.delete', { detail: post?.text });
+  return res;
+}
+export async function addComment(db, args) {
+  const res = await addComment__(db, args);
+  logActivity('comment.add', { detail: args.text });
+  return res;
+}
+export async function removeComment(db, postId, id) {
+  const res = await removeComment__(db, postId, id);
+  logActivity('comment.delete', {});
+  return res;
 }

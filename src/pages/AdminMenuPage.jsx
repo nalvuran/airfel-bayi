@@ -7,6 +7,7 @@ const items = [
   { to: '/dashboard', title: 'Dashboard', desc: 'Temsilci ve bölge bazında özet rakamlar' },
   { to: '/admin/users', title: 'Ekip ve kullanıcılar', desc: 'Ekip ağacı, görevler, fotoğraflar ve hesaplar' },
   { to: '/admin/sync', title: 'Veri Yükle', desc: 'Customer Data Excel dosyasıyla bayi listesini güncelle' },
+  { to: '/admin/activity', title: 'Hareket Günlüğü', desc: 'Kim, ne zaman, ne yaptı (son 30 gün)' },
   { to: '/admin/backup', title: 'Yedek al', desc: 'Tüm verilerin bir kopyasını bilgisayarına indir', backup: true },
 ];
 

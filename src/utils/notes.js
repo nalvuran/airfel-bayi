@@ -2,6 +2,7 @@
 // Bayi notları: dealers/{bayiId}/notes/{notId}. Customer Data yüklemesinden etkilenmez.
 import { addDoc, collection, deleteDoc, doc, getDocs, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { commitOrQueue } from './offline';
+import { logActivity } from './activity';
 
 export const NOTE_MAX = 2000;
 
@@ -14,7 +15,7 @@ export async function loadNotes(db, dealerId) {
     .sort((a, b) => ms(b.createdAt) - ms(a.createdAt));
 }
 
-export function addNote(db, dealerId, { text, user, profile, role }) {
+function addNote__(db, dealerId, { text, user, profile, role }) {
   return commitOrQueue(addDoc(collection(db, 'dealers', dealerId, 'notes'), {
     text,
     byUid: user.uid,
@@ -25,10 +26,27 @@ export function addNote(db, dealerId, { text, user, profile, role }) {
   }));
 }
 
-export function editNote(db, dealerId, noteId, text) {
+function editNote__(db, dealerId, noteId, text) {
   return commitOrQueue(updateDoc(doc(db, 'dealers', dealerId, 'notes', noteId), { text, editedAt: serverTimestamp() }));
 }
 
-export function removeNote(db, dealerId, noteId) {
+function removeNote__(db, dealerId, noteId) {
   return commitOrQueue(deleteDoc(doc(db, 'dealers', dealerId, 'notes', noteId)));
+}
+
+/* ---------- Hareket günlüğü: işlem başarılı olunca günlüğe yaz ---------- */
+export async function addNote(db, dealerId, args) {
+  const res = await addNote__(db, dealerId, args);
+  logActivity('note.add', { dealerId, detail: args.text });
+  return res;
+}
+export async function editNote(db, dealerId, noteId, text) {
+  const res = await editNote__(db, dealerId, noteId, text);
+  logActivity('note.edit', { dealerId, detail: text });
+  return res;
+}
+export async function removeNote(db, dealerId, noteId) {
+  const res = await removeNote__(db, dealerId, noteId);
+  logActivity('note.delete', { dealerId });
+  return res;
 }

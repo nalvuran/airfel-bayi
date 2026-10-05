@@ -3,6 +3,7 @@
 // Aynı bayiye yeni ziyaret kaydı girilince takip kendiliğinden kapanır.
 import { collection, deleteField, doc, getDocs, query, serverTimestamp, setDoc, where } from 'firebase/firestore';
 import { commitOrQueue } from './offline';
+import { logActivity } from './activity';
 
 let cache = null;
 const MEMORY_MS = 60 * 1000;
@@ -50,13 +51,13 @@ export function addFollowUpToBatch(batch, db, { dealer, date, user, profile, had
   else if (hadOpen) batch.set(ref, { done: true, closedAt: serverTimestamp(), closedByName: profile?.name || user.email, closedReason: 'visit' }, { merge: true });
 }
 
-export async function setFollowUp(db, { dealer, date, note, user, profile }) {
+async function setFollowUp__(db, { dealer, date, note, user, profile }) {
   const res = await commitOrQueue(setDoc(doc(db, 'followUps', dealer.i), followUpData({ dealer, date, note, user, profile }), { merge: true }));
   invalidateFollowUps();
   return res;
 }
 
-export async function clearFollowUp(db, { dealer, user, profile }) {
+async function clearFollowUp__(db, { dealer, user, profile }) {
   const res = await commitOrQueue(setDoc(doc(db, 'followUps', dealer.i), {
     done: true, closedAt: serverTimestamp(), closedByName: profile?.name || user.email, closedReason: 'manual',
   }, { merge: true }));
@@ -109,4 +110,16 @@ export function openIcs(input) {
   a.download = `takip-${ev.date}.ics`;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+}
+
+/* ---------- Hareket günlüğü: işlem başarılı olunca günlüğe yaz ---------- */
+export async function setFollowUp(db, args) {
+  const res = await setFollowUp__(db, args);
+  logActivity('followup.set', { dealerId: args.dealer?.i, dealerName: args.dealer?.n, detail: args.date?.split('-').reverse().join('.') });
+  return res;
+}
+export async function clearFollowUp(db, args) {
+  const res = await clearFollowUp__(db, args);
+  logActivity('followup.clear', { dealerId: args.dealer?.i, dealerName: args.dealer?.n });
+  return res;
 }

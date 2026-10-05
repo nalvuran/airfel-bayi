@@ -7,6 +7,7 @@ import {
 } from 'firebase/firestore';
 import { getDealerIndex } from './dealerIndex';
 import { db } from '../firebase';
+import { logActivity } from './activity';
 
 export const BACKUP_DUE_DAYS = 30;
 const toD = (v) => (v?.toDate ? v.toDate() : v instanceof Date ? v : null);
@@ -106,7 +107,7 @@ async function collectPhotos({ mode, since, regs, requestsRows, onStep }) {
 /**
  * photos: 'none' (sadece veriler, JSON) | 'all' (tüm fotoğraflar, ZIP) | 'new' (son fotoğraflı yedekten sonrakiler, ZIP)
  */
-export async function runBackup({ user, onStep, photos = 'none', photosSince = null }) {
+async function runBackup__({ user, onStep, photos = 'none', photosSince = null }) {
   const out = { app: 'airfel-bayi', version: 1, createdAt: new Date().toISOString(), createdBy: user.email, collections: {} };
   const counts = {};
   for (const [key, label, load] of STEPS) {
@@ -178,4 +179,11 @@ export function useLastBackup(enabled = true, refresh = 0) {
   }, [enabled, refresh]);
   const days = last?.at ? Math.floor((Date.now() - last.at.getTime()) / 86400000) : null;
   return { loaded: last !== undefined, at: last?.at || null, by: last?.by || null, days, due: last !== undefined && (days === null || days >= BACKUP_DUE_DAYS) };
+}
+
+/* ---------- Hareket günlüğü: işlem başarılı olunca günlüğe yaz ---------- */
+export async function runBackup(args) {
+  const res = await runBackup__(args);
+  logActivity('backup.run', { detail: args.photos && args.photos !== 'none' ? `veriler + fotoğraflar (${args.photos === 'new' ? 'yeni fotoğraflar' : 'tüm fotoğraflar'})` : 'sadece veriler' });
+  return res;
 }

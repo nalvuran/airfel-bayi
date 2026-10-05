@@ -2,6 +2,7 @@
 // Kayıt ve bayi listelerini Excel dosyası olarak indirir. Excel kütüphanesi sadece gerektiğinde yüklenir.
 import { installWaitDays, overdueInstall, waitingInstall } from './registrationStore';
 import { CATALOG_ITEMS, REQUEST_STATUS, REQUEST_TYPES, TRAINING_TOPICS } from './catalog';
+import { logActivity } from './activity';
 
 const yn = (v) => (v === true ? 'Evet' : v === false ? 'Hayır' : '');
 const today = () => new Date().toISOString().slice(0, 10);
@@ -42,7 +43,7 @@ async function download(rows, sheetName, fileName) {
   XLSX.writeFile(wb, fileName, { compression: true });
 }
 
-export function exportRegistrations(regs, dealers) {
+function exportRegistrations__(regs, dealers) {
   const rows = regs.map((r) => {
     const d = dealers.get(r.dealerId);
     return {
@@ -76,7 +77,7 @@ export function exportRegistrations(regs, dealers) {
   return download(rows, 'Kayıtlar', `airfel-kayitlar-${today()}.xlsx`);
 }
 
-export function exportDealers(entries, regs, locs = {}) {
+function exportDealers__(entries, regs, locs = {}) {
   const located = new Set([...regs.filter((r) => r.location?.lat).map((r) => r.dealerId), ...Object.keys(locs)]);
   const visits = new Map();
   regs.forEach((r) => {
@@ -109,7 +110,7 @@ export function exportDealers(entries, regs, locs = {}) {
   return download(rows, 'Bayiler', `airfel-bayiler-${today()}.xlsx`);
 }
 
-export function exportRequests(list, dealers) {
+function exportRequests__(list, dealers) {
   const rows = list.map((q) => {
     const d = dealers.get(q.dealerId);
     return {
@@ -133,4 +134,21 @@ export function exportRequests(list, dealers) {
     };
   });
   return download(rows, 'Talepler', `airfel-talepler-${today()}.xlsx`);
+}
+
+/* ---------- Hareket günlüğü: işlem başarılı olunca günlüğe yaz ---------- */
+export async function exportRegistrations(regs, dealers) {
+  const res = await exportRegistrations__(regs, dealers);
+  logActivity('export.registrations', { detail: `${regs.length} kayıt` });
+  return res;
+}
+export async function exportDealers(entries, regs, locs) {
+  const res = await exportDealers__(entries, regs, locs);
+  logActivity('export.dealers', { detail: `${entries.length} bayi` });
+  return res;
+}
+export async function exportRequests(list, dealers) {
+  const res = await exportRequests__(list, dealers);
+  logActivity('export.requests', { detail: `${list.length} talep` });
+  return res;
 }

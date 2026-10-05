@@ -5,6 +5,7 @@ import { Bytes, collection, deleteField, doc, getDocs, increment, serverTimestam
 import { addPhoto } from './registrations';
 import { makeThumb } from './image';
 import { commitOrQueue } from './offline';
+import { logActivity } from './activity';
 
 export const FIELD_LABELS = {
   contactName: 'Görüşülen kişi',
@@ -46,7 +47,7 @@ function startEdit(db, r, user, profile) {
  * changes: { contactName?, phone?, email?, signRequest?, standRequest?, location?: {location, locationSource, locationAccuracy, mapsUrl} }
  * photos:  { exterior?, interior?, exteriorAfter?, interiorAfter? }  (compressImage çıktısı)
  */
-export async function saveRegistrationEdit(db, { r, changes = {}, photos = {}, user, profile }) {
+async function saveRegistrationEdit__(db, { r, changes = {}, photos = {}, user, profile }) {
   const { batch, hRef, meta } = startEdit(db, r, user, profile);
   const update = { ...meta };
   const hist = [];
@@ -94,7 +95,7 @@ export async function saveRegistrationEdit(db, { r, changes = {}, photos = {}, u
 }
 
 // Sahip: kaydı başka bayiye taşır (firma ünvanı ve distribütör yeni bayiden gelir)
-export async function moveRegistration(db, { r, dealer, user, profile }) {
+async function moveRegistration__(db, { r, dealer, user, profile }) {
   const { batch, hRef, meta } = startEdit(db, r, user, profile);
   const fromName = r.dealerName || r.companyTitle || r.dealerId;
   batch.set(hRef, {
@@ -113,7 +114,7 @@ export async function moveRegistration(db, { r, dealer, user, profile }) {
 }
 
 // Sahip: "kontrol gerekli" işaretini ve dikkat işaretini kaldırır
-export async function clearFlags(db, { r, user, profile, which }) {
+async function clearFlags__(db, { r, user, profile, which }) {
   const { batch, hRef, meta } = startEdit(db, r, user, profile);
   const update = { ...meta };
   const changes = [];
@@ -130,7 +131,7 @@ export async function clearFlags(db, { r, user, profile, which }) {
 }
 
 // Sahip: kaydı, fotoğraflarını, önizlemesini ve geçmişini tamamen siler
-export async function deleteRegistration(db, { r }) {
+async function deleteRegistration__(db, { r }) {
   const hist = await getDocs(collection(db, 'registrations', r.id, 'history'));
   const photoIds = new Set(Object.values(r.photoFiles || {}).map((p) => p?.photoId).filter(Boolean));
   hist.docs.forEach((h) => (h.data().photos || []).forEach((p) => { if (p.oldPhotoId) photoIds.add(p.oldPhotoId); }));
@@ -146,4 +147,31 @@ export async function loadHistory(db, regId) {
   const snap = await getDocs(collection(db, 'registrations', regId, 'history'));
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
     .sort((a, b) => (b.at?.toMillis?.() ?? 0) - (a.at?.toMillis?.() ?? 0));
+}
+
+/* ---------- Hareket günlüğü: işlem başarılı olunca günlüğe yaz ---------- */
+export async function saveRegistrationEdit(db, args) {
+  const res = await saveRegistrationEdit__(db, args);
+  const { r, changes = {}, photos = {} } = args;
+  const fields = [...Object.keys(changes).map((k) => FIELD_LABELS[k] || k), ...Object.keys(photos).filter((k) => photos[k]).map(() => 'fotoğraf')];
+  logActivity('registration.edit', { dealerId: r.dealerId, dealerName: r.dealerName || r.companyTitle, detail: [...new Set(fields)].join(', ') });
+  return res;
+}
+export async function moveRegistration(db, args) {
+  const res = await moveRegistration__(db, args);
+  const { r, dealer } = args;
+  logActivity('registration.move', { dealerId: dealer?.i, dealerName: dealer?.n, detail: `${r.dealerName || r.companyTitle || r.dealerId} → ${dealer?.n}` });
+  return res;
+}
+export async function clearFlags(db, args) {
+  const res = await clearFlags__(db, args);
+  const { r, which } = args;
+  logActivity('registration.flags', { dealerId: r.dealerId, dealerName: r.dealerName || r.companyTitle, detail: which === 'attention' ? 'Kurulumdan sonra değiştirildi' : 'Kontrol gerekli' });
+  return res;
+}
+export async function deleteRegistration(db, args) {
+  const res = await deleteRegistration__(db, args);
+  const { r } = args;
+  logActivity('registration.delete', { dealerId: r.dealerId, dealerName: r.dealerName || r.companyTitle, detail: r.date ? `kayıt tarihi ${r.date.toLocaleDateString?.('tr-TR') || ''}` : '' });
+  return res;
 }

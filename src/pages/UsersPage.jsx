@@ -10,6 +10,7 @@ import { removeRepPhoto, removePerson, savePerson, saveRepPhoto } from '../utils
 import { SEED_TEAM, TEAM_ROLES, personKey, seedTeam, useTeam } from '../utils/team';
 import { squareAvatar } from '../utils/image';
 import { presenceInfo } from '../utils/presence';
+import { logActivity } from '../utils/activity';
 import { Alert, Avatar, Badge, Card, PageHeader } from '../components/ui';
 
 const AUTH_ERRORS = {
@@ -265,6 +266,7 @@ function AccountRow({ u, team, isSelf, onChanged }) {
     if (isOwnerRow) patch.salesRepKey = p?.role === 'rep' ? link : null;
     else Object.assign(patch, { role: p?.role || 'rep', salesRepKey: p?.role === 'rep' ? link : null });
     await updateDoc(doc(db, 'users', u.id), patch);
+    logActivity('user.link', { detail: `${u.email || u.id} → ${p?.name || 'kimse'}` });
     setMode(null);
   }, isSelf ? 'Kaydedildi. Görmek için çıkış yapıp tekrar giriş yap.' : 'Kaydedildi.');
 
@@ -296,14 +298,14 @@ function AccountRow({ u, team, isSelf, onChanged }) {
           {u.email && <button className="btn-link text-sm" disabled={busy} onClick={() => run(() => sendSetPasswordMail(u.email), `${u.email} adresine şifre belirleme e-postası gönderildi.`)}>Şifre e-postası gönder</button>}
           {!isOwnerRow && !isSelf && (
             <button className="btn-link text-sm" style={{ color: 'var(--muted)' }} disabled={busy}
-              onClick={() => (active || window.confirm('Hesap tekrar aktif yapılsın mı?')) && (!active || window.confirm(`${u.name || u.email} pasif yapılsın mı?`)) && run(() => updateDoc(doc(db, 'users', u.id), { active: !active }))}>
+              onClick={() => (active || window.confirm('Hesap tekrar aktif yapılsın mı?')) && (!active || window.confirm(`${u.name || u.email} pasif yapılsın mı?`)) && run(async () => { await updateDoc(doc(db, 'users', u.id), { active: !active }); logActivity(active ? 'user.inactive' : 'user.active', { detail: u.name || u.email }); })}>
               {active ? 'Pasif yap' : 'Aktif yap'}
             </button>
           )}
           {!isOwnerRow && !isSelf && (
             <button className="btn-link text-sm" style={{ color: 'var(--danger)' }} disabled={busy}
               onClick={() => window.confirm(`${u.name || u.email} kaldırılsın mı? Uygulamaya bir daha giremez; girdiği kayıtlar adıyla birlikte geçmişte kalır.`)
-                && run(() => deleteDoc(doc(db, 'users', u.id)))}>Kaldır</button>
+                && run(async () => { await deleteDoc(doc(db, 'users', u.id)); logActivity('user.remove', { detail: `${u.name || ''} · ${u.email || u.id}` }); })}>Kaldır</button>
           )}
         </div>
       )}
@@ -348,6 +350,7 @@ function CreateAccount({ team, accounts, adminEmail, onCreated }) {
         name: p.name, email, role: p.role, personKey: p.key, salesRepKey: p.role === 'rep' ? p.key : null,
         active: true, createdAt: serverTimestamp(), createdBy: adminEmail,
       });
+      logActivity('user.create', { detail: `${p.name} · ${email}` });
       let text = `${p.name} için hesap açıldı.`;
       // Şifre e-postası kendiliğinden gönderilmez: kişi şifresini giriş ekranındaki "Şifremi unuttum" ile kendisi alır
       text += f.password

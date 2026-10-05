@@ -3,6 +3,8 @@
 import { collection, doc, getDocs, serverTimestamp, updateDoc, writeBatch } from 'firebase/firestore';
 import { addPhoto } from './registrations';
 import { commitOrQueue } from './offline';
+import { logActivity } from './activity';
+import { requestSummary } from './catalog';
 
 let cache = null; // { list, at }
 const MEMORY_MS = 60 * 1000;
@@ -54,7 +56,7 @@ export function validateRequestDraft(d) {
 }
 
 // Bayi sayfasından, ziyaret olmadan tek talep açma
-export async function createRequest(db, { draft, dealer, user, profile }) {
+async function createRequest__(db, { draft, dealer, user, profile }) {
   const batch = writeBatch(db);
   addRequestToBatch(batch, db, { draft, dealer, user, profile });
   const res = await commitOrQueue(batch.commit());
@@ -62,7 +64,7 @@ export async function createRequest(db, { draft, dealer, user, profile }) {
   return res;
 }
 
-export async function closeRequest(db, { request, status, note, user, profile }) {
+async function closeRequest__(db, { request, status, note, user, profile }) {
   const res = await commitOrQueue(updateDoc(doc(db, 'requests', request.id), {
     status,
     closedAt: serverTimestamp(),
@@ -76,3 +78,18 @@ export async function closeRequest(db, { request, status, note, user, profile })
 }
 
 export const requestAgeDays = (q) => (q.date ? Math.floor((Date.now() - q.date.getTime()) / 86400000) : 0);
+
+/* ---------- Hareket günlüğü: işlem başarılı olunca günlüğe yaz ---------- */
+export async function createRequest(db, args) {
+  const res = await createRequest__(db, args);
+  const { draft, dealer } = args;
+  logActivity('request.create', { dealerId: dealer?.i, dealerName: dealer?.n, detail: requestSummary(draft) });
+  return res;
+}
+export async function closeRequest(db, args) {
+  const res = await closeRequest__(db, args);
+  const { request, status, note } = args;
+  logActivity('request.close', { dealerId: request.dealerId, dealerName: request.dealerName,
+    detail: `${status === 'done' ? 'Tamamlandı' : status === 'cancelled' ? 'İptal' : status}: ${requestSummary(request)}${note ? ` · "${note}"` : ''}` });
+  return res;
+}

@@ -7,6 +7,7 @@ import { parseCustomerData } from '../utils/importers';
 import { PageHeader } from '../components/ui';
 import { buildMissingThumbs } from '../utils/thumbs';
 import { personKey, useTeam } from '../utils/team';
+import { logActivity } from '../utils/activity';
 import { toIndexEntry, writeDealerIndex, rebuildDealerIndexFromFirestore, clearDealerIndexCache, loadDealerIndex, dealerHash } from '../utils/dealerIndex';
 
 const C = {
@@ -223,6 +224,7 @@ function CustomerDataSection({ user }) {
         written: n, unchanged: parsed.dealers.length - n, stats: { ...parsed.stats, duplicateIds: parsed.stats.duplicateIds.length },
       });
       setState('done');
+      logActivity('sync.upload', { detail: `${fileName}: ${n} bayi güncellendi${kept.length ? `, ${kept.length} bayi gizlendi` : ''}` });
       setMsg({ tone: 'ok', text: n
         ? `${n} bayinin bilgisi değişmişti, güncellendi. ${parsed.dealers.length - n} bayi aynı kaldığı için yeniden yazılmadı. Güncel listede ${parsed.dealers.length} bayi var${kept.length ? `; dosyada olmayan ${kept.length} bayi listelerden gizlendi` : ''}.`
         : `Hiçbir bayinin bilgisi değişmemiş; yazma yapılmadı. Güncel listede ${parsed.dealers.length} bayi var${kept.length ? `; dosyada olmayan ${kept.length} bayi listelerden gizlendi` : ''}.` });

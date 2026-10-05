@@ -148,6 +148,18 @@ service cloud.firestore {
       allow delete: if isOwner();
     }
 
+    // ---------- Hareket günlüğü: sadece sahip okur; herkes yalnızca kendi adına, o anki zamanla yazar ----------
+    match /activity/{id} {
+      allow read: if isOwner();
+      allow create: if isActive()
+        && request.resource.data.byUid == request.auth.uid
+        && request.resource.data.at == request.time
+        && request.resource.data.type is string;
+      allow update: if false;
+      // Kayıtlar değiştirilemez; sadece 30 günü dolanlar silinebilir
+      allow delete: if isOwner() && resource.data.at < request.time - duration.value(30, 'd');
+    }
+
     // ---------- Pano ----------
     match /posts/{postId} {
       function validText() {

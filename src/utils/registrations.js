@@ -5,6 +5,7 @@ import { makeThumb } from './image';
 import { commitOrQueue } from './offline';
 import { addRequestToBatch, invalidateRequests } from './requests';
 import { addFollowUpToBatch, invalidateFollowUps } from './followUps';
+import { logActivity } from './activity';
 
 export function addPhoto(batch, db, regId, slot, photo, uid) {
   const photoId = `${regId}_${slot}_${Date.now().toString(36)}`;
@@ -28,7 +29,7 @@ export function addPhoto(batch, db, regId, slot, photo, uid) {
  * dealer: dizindeki bayi satırı ({ i, n, ... }), requests: talep taslakları,
  * followUpDate: 'YYYY-MM-DD' ya da null, hadOpenFollowUp: bayinin açık takibi var mıydı
  */
-export async function createRegistration(db, { fields, photos, profile, user, dealer, requests = [], followUpDate = null, hadOpenFollowUp = false }) {
+async function createRegistration__(db, { fields, photos, profile, user, dealer, requests = [], followUpDate = null, hadOpenFollowUp = false }) {
   const ref = doc(collection(db, 'registrations'));
   const batch = writeBatch(db);
   const photoFiles = {};
@@ -71,4 +72,13 @@ export async function createRegistration(db, { fields, photos, profile, user, de
   if (requests.length) invalidateRequests();
   invalidateFollowUps();
   return { id: ref.id, queued };
+}
+
+/* ---------- Hareket günlüğü: işlem başarılı olunca günlüğe yaz ---------- */
+export async function createRegistration(db, args) {
+  const res = await createRegistration__(db, args);
+  const { dealer, fields = {}, requests = [], followUpDate } = args;
+  logActivity('registration.create', { dealerId: dealer?.i || fields.dealerId, dealerName: dealer?.n || fields.dealerName,
+    detail: [requests.length ? `${requests.length} talep` : '', followUpDate ? `tekrar uğra: ${followUpDate.split('-').reverse().join('.')}` : ''].filter(Boolean).join(' · ') });
+  return res;
 }

@@ -3,6 +3,7 @@
 // repProfiles/{salesRepKey}. Tüm aktif kullanıcılar okuyabilir, sadece yönetici yazar.
 import { useEffect, useState } from 'react';
 import { Bytes, collection, deleteField, doc, getDocs, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
+import { logActivity } from './activity';
 
 let cache = null;     // { [salesRepKey]: { name, url } }
 let pending = null;
@@ -70,14 +71,26 @@ export const titleCase = (s) => (s || '').toLocaleLowerCase('tr-TR').replace(/(^
 
 /* ---------- Ekip ağacı (sadece sahip değiştirir) ---------- */
 
-export async function savePerson(db, { key, name, role, managerKey, by }) {
+async function savePerson__(db, { key, name, role, managerKey, by }) {
   await setDoc(doc(db, 'repProfiles', key), {
     salesRepKey: key, name, role, managerKey: managerKey || null, inTeam: true, updatedAt: serverTimestamp(), updatedBy: by,
   }, { merge: true });
   await loadRepProfiles(db, { force: true });
 }
 
-export async function removePerson(db, { key, by }) {
+async function removePerson__(db, { key, by }) {
   await setDoc(doc(db, 'repProfiles', key), { inTeam: false, updatedAt: serverTimestamp(), updatedBy: by }, { merge: true });
   await loadRepProfiles(db, { force: true });
+}
+
+/* ---------- Hareket günlüğü: işlem başarılı olunca günlüğe yaz ---------- */
+export async function savePerson(db, args) {
+  const res = await savePerson__(db, args);
+  logActivity('team.save', { detail: `${args.name}${args.role ? ` · ${{ rep: 'Temsilci', regionManager: 'Bölge Müdürü', deptManager: 'Departman Müdürü' }[args.role] || args.role}` : ''}` });
+  return res;
+}
+export async function removePerson(db, args) {
+  const res = await removePerson__(db, args);
+  logActivity('team.remove', { detail: args.key });
+  return res;
 }

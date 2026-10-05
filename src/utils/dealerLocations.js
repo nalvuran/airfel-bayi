@@ -3,6 +3,7 @@
 // tutulur; harita açılırken bayi sayısı kadar değil, tek bir okuma yapılır.
 import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { commitOrQueue } from './offline';
+import { logActivity } from './activity';
 
 let cache = null;
 const MEMORY_MS = 60 * 1000;
@@ -16,7 +17,7 @@ export async function loadDealerLocations(db, { force } = {}) {
   return locs;
 }
 
-export async function saveDealerLocation(db, { dealerId, value, user, profile }) {
+async function saveDealerLocation__(db, { dealerId, value, user, profile }) {
   const entry = {
     lat: value.location.lat, lng: value.location.lng,
     acc: value.locationAccuracy ?? null, src: value.locationSource || 'link',
@@ -33,4 +34,11 @@ export function effectiveLocation(manual, lastRegWithLoc) {
   if (manual && manual.at >= regAt) return { lat: manual.lat, lng: manual.lng, source: 'manual', at: new Date(manual.at), by: manual.by };
   if (lastRegWithLoc) return { lat: lastRegWithLoc.location.lat, lng: lastRegWithLoc.location.lng, source: 'visit', at: lastRegWithLoc.date, by: lastRegWithLoc.salesRep };
   return null;
+}
+
+/* ---------- Hareket günlüğü: işlem başarılı olunca günlüğe yaz ---------- */
+export async function saveDealerLocation(db, args) {
+  const res = await saveDealerLocation__(db, args);
+  logActivity('location.save', { dealerId: args.dealerId, detail: args.value?.locationSource === 'gps' ? 'GPS ile' : 'Google Maps bağlantısıyla' });
+  return res;
 }

@@ -19,6 +19,8 @@ const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const SyncPage = lazy(() => import('./pages/SyncPage'));
 const BackupPage = lazy(() => import('./pages/BackupPage'));
 const ActivityPage = lazy(() => import('./pages/ActivityPage'));
+const KvkkAdminPage = lazy(() => import('./pages/KvkkAdminPage'));
+import KvkkGate from './components/KvkkGate';
 
 function PrivateRoute({ children }) {
   const { user } = useAuth();
@@ -46,6 +48,7 @@ function AppRoutes() {
         <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
         <Route path="/*" element={
           <PrivateRoute>
+            <KvkkGate>
             <Layout>
               <Routes>
                 <Route path="/" element={<HomePage />} />
@@ -60,10 +63,12 @@ function AppRoutes() {
                 <Route path="/admin" element={<AdminRoute><AdminMenuPage /></AdminRoute>} />
                 <Route path="/admin/backup" element={<AdminRoute><Suspense fallback={null}><BackupPage /></Suspense></AdminRoute>} />
                 <Route path="/admin/activity" element={<AdminRoute><Suspense fallback={null}><ActivityPage /></Suspense></AdminRoute>} />
+                <Route path="/admin/kvkk" element={<AdminRoute><Suspense fallback={null}><KvkkAdminPage /></Suspense></AdminRoute>} />
                 <Route path="/admin/users" element={<AdminRoute><UsersPage /></AdminRoute>} />
                 <Route path="/admin/sync" element={<AdminRoute><Suspense fallback={<div className="page"><div className="page-subtitle">Yükleniyor…</div></div>}><SyncPage /></Suspense></AdminRoute>} />
               </Routes>
             </Layout>
+            </KvkkGate>
           </PrivateRoute>
         } />
       </Routes>

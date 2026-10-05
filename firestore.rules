@@ -35,7 +35,7 @@ service cloud.firestore {
       allow create: if isOwner() && request.resource.data.get('role', 'rep') in ['rep', 'regionManager', 'deptManager'];
       // Herkes kendi profiline sadece "son görülme" bilgisini yazabilir
       allow update: if signedIn() && request.auth.uid == uid
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastSeenAt', 'activeDays']);
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastSeenAt', 'activeDays', 'kvkkVersion', 'kvkkAcceptedAt']);
       allow update: if isOwner() && (
         (resource.data.get('role', 'rep') in ['owner', 'admin']
           && request.resource.data.get('role', 'rep') == resource.data.get('role', 'rep')
@@ -146,6 +146,12 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['locs', 'updatedAt'])
         && request.resource.data.locs is map;
       allow delete: if isOwner();
+    }
+
+    // ---------- Ayarlar (aydınlatma metni): herkes okur, sahip yazar ----------
+    match /settings/{key} {
+      allow read: if isActive();
+      allow write: if isOwner();
     }
 
     // ---------- Hareket günlüğü: sadece sahip okur; herkes yalnızca kendi adına, o anki zamanla yazar ----------

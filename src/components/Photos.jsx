@@ -48,7 +48,7 @@ export function Photo({ info, driveUrl, label, onOpen }) {
       ) : (
         <div style={box}>
           {status === 'none' && (driveUrl ? <a href={driveUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--red)', fontWeight: 700 }}>Drive'da aç</a> : 'Fotoğraf yok')}
-          {(status === 'missing' || status === 'error') && 'Fotoğraf açılamadı'}
+          {status === 'missing' && 'Fotoğraf silindi'}{status === 'error' && 'Fotoğraf açılamadı'}
         </div>
       )}
       <figcaption className="text-xs muted" style={{ marginTop: 6, fontWeight: 600 }}>{label}</figcaption>

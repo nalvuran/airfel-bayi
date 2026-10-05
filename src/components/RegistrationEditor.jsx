@@ -4,7 +4,7 @@ import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { getDealerIndex } from '../utils/dealerIndex';
 import {
-  PHOTO_LABELS, clearFlags, deleteRegistration, loadHistory, moveRegistration, saveRegistrationEdit,
+  PHOTO_LABELS, clearFlags, deleteRegistration, loadHistory, moveRegistration, saveRegistrationEdit, removePhotos,
 } from '../utils/registrationEdit';
 import { clearThumbCache } from '../utils/thumbs';
 import { DealerPicker, LocationInput, PhoneInput, YesNo, phoneRest } from './FormFields';
@@ -154,6 +154,17 @@ export function OwnerActions({ r, onChanged, onDeleted }) {
     onDeleted(`Kayıt "${target.n}" bayisine taşındı.`);
   });
 
+  // Fotoğrafları kalıcı sil (kayıt kalır)
+  const SLOT_NAMES = { exterior: 'Dış cephe', interior: 'Dükkan içi', exteriorAfter: 'Dış cephe (kurulum sonrası)', interiorAfter: 'Dükkan içi (kurulum sonrası)' };
+  const present = Object.keys(SLOT_NAMES).filter((k) => r.photoFiles?.[k] || r.photos?.[k]);
+  const [pick, setPick] = useState([]);
+  const doRemovePhotos = () => run(async () => {
+    if (!pick.length) { setError('Silinecek fotoğrafı seç.'); return; }
+    if (!window.confirm(`${pick.map((k) => SLOT_NAMES[k]).join(', ')} fotoğrafı, değişiklik geçmişindeki eski sürümleriyle birlikte kalıcı olarak silinecek. Kayıt silinmeyecek. Devam edilsin mi?`)) return;
+    await removePhotos(db, { r, slots: pick, user, profile: userProfile });
+    setMode(null); setPick([]); onChanged();
+  });
+
   const doDelete = () => run(async () => {
     if (!window.confirm('Bu kayıt, fotoğrafları ve değişiklik geçmişiyle birlikte kalıcı olarak silinecek. Emin misin?')) return;
     if (!window.confirm('Bu işlem geri alınamaz. Silmeyi onaylıyor musun?')) return;
@@ -168,8 +179,24 @@ export function OwnerActions({ r, onChanged, onDeleted }) {
         <button className="btn-link text-sm" disabled={busy} onClick={() => setMode(mode === 'move' ? null : 'move')}>Başka bayiye taşı</button>
         {r.needsReview && <button className="btn-link text-sm" disabled={busy} onClick={() => run(async () => { await clearFlags(db, { r, user, profile: userProfile, which: 'review' }); onChanged(); })}>"Kontrol gerekli" işaretini kaldır</button>}
         {r.attention && <button className="btn-link text-sm" disabled={busy} onClick={() => run(async () => { await clearFlags(db, { r, user, profile: userProfile, which: 'attention' }); onChanged(); })}>Dikkat işaretini kaldır</button>}
+        {present.length > 0 && <button className="btn-link text-sm" style={{ color: 'var(--danger)' }} disabled={busy} onClick={() => { setMode(mode === 'photos' ? null : 'photos'); setPick([]); }}>Fotoğraf sil</button>}
         <button className="btn-link text-sm" style={{ color: 'var(--danger)' }} disabled={busy} onClick={doDelete}>Kaydı sil</button>
       </div>
+      {mode === 'photos' && (
+        <div className="mt-12">
+          <div className="text-sm" style={{ fontWeight: 700, marginBottom: 6 }}>Kalıcı olarak silinecek fotoğraflar (kayıt kalır):</div>
+          {present.map((k) => (
+            <label key={k} className="check" style={{ display: 'flex', margin: '4px 0' }}>
+              <input type="checkbox" checked={pick.includes(k)} onChange={(e) => setPick((x) => (e.target.checked ? [...x, k] : x.filter((y) => y !== k)))} />
+              {SLOT_NAMES[k]}
+            </label>
+          ))}
+          <div className="row mt-8">
+            <button className="btn btn-sm" style={{ background: 'var(--danger)', color: '#fff', borderColor: 'var(--danger)' }} disabled={busy || !pick.length} onClick={doRemovePhotos}>Seçilenleri sil</button>
+            <button className="btn btn-secondary btn-sm" disabled={busy} onClick={() => setMode(null)}>Vazgeç</button>
+          </div>
+        </div>
+      )}
       {mode === 'move' && (
         <div className="mt-12">
           {index ? <DealerPicker entries={index.entries} value={target} onChange={setTarget} /> : <div className="text-sm muted">Bayi listesi yükleniyor…</div>}
@@ -225,10 +252,10 @@ export function History({ r, onOpenPhoto }) {
                 ))}
                 {(h.photos || []).map((p, i) => (
                   <li key={`p${i}`}>
-                    <span className="muted">{p.label} fotoğrafı {p.oldPhotoId ? 'değiştirildi' : 'eklendi'}</span>
+                    <span className="muted">{p.label} fotoğrafı {p.removed ? 'yönetici tarafından kalıcı olarak silindi' : p.oldPhotoId ? 'değiştirildi' : 'eklendi'}</span>
                     <div className="history-photos">
                       {p.oldPhotoId && <Photo info={{ photoId: p.oldPhotoId }} label="Eski" onOpen={onOpenPhoto} />}
-                      <Photo info={{ photoId: p.newPhotoId }} label="Yeni" onOpen={onOpenPhoto} />
+                      {p.newPhotoId && <Photo info={{ photoId: p.newPhotoId }} label="Yeni" onOpen={onOpenPhoto} />}
                     </div>
                   </li>
                 ))}

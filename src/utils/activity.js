@@ -14,6 +14,7 @@ export const ACTIVITY_TYPES = {
   'registration.move': { label: 'Kaydı başka bayiye taşıdı', group: 'Kayıt' },
   'registration.flags': { label: 'Kayıt işaretini kaldırdı', group: 'Kayıt' },
   'registration.delete': { label: 'Kaydı sildi', group: 'Kayıt' },
+  'registration.photoRemove': { label: 'Kayıttaki fotoğrafı sildi', group: 'Kayıt' },
   'request.create': { label: 'Talep açtı', group: 'Talep' },
   'request.close': { label: 'Talep kapattı', group: 'Talep' },
   'note.add': { label: 'Not yazdı', group: 'Not' },

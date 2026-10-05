@@ -34,6 +34,7 @@ function Registration({ r, onOpen, canEdit, isOwner, onChanged, onRemoved }) {
   const missingAfter = !r.photoFiles?.exteriorAfter && !r.photoFiles?.interiorAfter && !r.photos?.exteriorAfter && !r.photos?.interiorAfter;
   const loc = r.location ? `https://www.google.com/maps?q=${r.location.lat},${r.location.lng}` : r.mapsUrl;
   const slots = Object.keys(SLOT_LABEL).filter((s) => r.photos?.[s] || r.photoFiles?.[s]);
+  const removedSlots = Object.keys(r.photosRemoved || {}).filter((s) => !r.photoFiles?.[s] && !r.photos?.[s]);
 
   return (
     <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16, marginTop: 16 }}>
@@ -71,6 +72,11 @@ function Registration({ r, onOpen, canEdit, isOwner, onChanged, onRemoved }) {
             <Photo key={s} info={r.photoFiles?.[s]} driveUrl={r.photos?.[s]} label={SLOT_LABEL[s]}
               onOpen={(p) => onOpen({ ...p, label: `${p.label} · ${fmtDate(r.createdAt)}` })} />
           ))}
+        </div>
+      )}
+      {removedSlots.length > 0 && (
+        <div className="text-xs muted mt-8" style={{ fontWeight: 600 }}>
+          {removedSlots.map((s) => SLOT_LABEL[s]).join(', ')} fotoğrafı yönetici tarafından kaldırıldı.
         </div>
       )}
       <History r={r} onOpenPhoto={(p) => onOpen({ ...p, label: `${p.label} · ${fmtDate(r.createdAt)}` })} />

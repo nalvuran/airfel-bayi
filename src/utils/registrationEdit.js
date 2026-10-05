@@ -143,6 +143,38 @@ async function deleteRegistration__(db, { r }) {
   await batch.commit();
 }
 
+// Sahip: seçilen fotoğrafları kalıcı olarak siler (kaydın diğer bilgileri kalır).
+// Aynı alanın değişiklik geçmişindeki eski sürümleri de silinir; iz kaydına "kaldırıldı" yazılır.
+async function removePhotos__(db, { r, slots, user, profile }) {
+  const history = await loadHistory(db, r.id).catch(() => []);
+  const { batch, hRef, meta } = startEdit(db, r, user, profile);
+  const update = { ...meta };
+  const removed = [];
+  const toDelete = new Set();
+  for (const slot of slots) {
+    const cur = r.photoFiles?.[slot]?.photoId;
+    if (cur) toDelete.add(cur);
+    history.forEach((h) => (h.photos || []).forEach((p) => {
+      if (p.slot !== slot) return;
+      if (p.oldPhotoId) toDelete.add(p.oldPhotoId);
+      if (p.newPhotoId) toDelete.add(p.newPhotoId);
+    }));
+    update[`photoFiles.${slot}`] = deleteField();
+    if (r.photos?.[slot]) update[`photos.${slot}`] = deleteField(); // eski sistemden gelen bağlantı
+    update[`photosRemoved.${slot}`] = { at: serverTimestamp(), by: profile?.name || user.email };
+    removed.push({ slot, label: PHOTO_LABELS[slot], removed: true });
+  }
+  toDelete.forEach((id) => batch.delete(doc(db, 'photos', id)));
+  const thumbSlots = slots.filter((x) => x === 'exterior' || x === 'interior');
+  if (thumbSlots.length) {
+    batch.set(doc(db, 'thumbs', r.id), Object.fromEntries(thumbSlots.map((x) => [x, deleteField()])), { merge: true });
+  }
+  batch.set(hRef, { action: 'photo-remove', at: serverTimestamp(), ...actor(user, profile), changes: [], photos: removed });
+  batch.update(doc(db, 'registrations', r.id), update);
+  await batch.commit();
+  return { removed: slots.length, deletedPhotos: toDelete.size };
+}
+
 export async function loadHistory(db, regId) {
   const snap = await getDocs(collection(db, 'registrations', regId, 'history'));
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
@@ -173,5 +205,11 @@ export async function deleteRegistration(db, args) {
   const res = await deleteRegistration__(db, args);
   const { r } = args;
   logActivity('registration.delete', { dealerId: r.dealerId, dealerName: r.dealerName || r.companyTitle, detail: r.date ? `kayıt tarihi ${r.date.toLocaleDateString?.('tr-TR') || ''}` : '' });
+  return res;
+}
+export async function removePhotos(db, args) {
+  const res = await removePhotos__(db, args);
+  const { r, slots } = args;
+  logActivity('registration.photoRemove', { dealerId: r.dealerId, dealerName: r.dealerName || r.companyTitle, detail: slots.map((x) => PHOTO_LABELS[x] || x).join(', ') });
   return res;
 }

@@ -33,7 +33,7 @@ Bu metin, 6698 sayılı Kişisel Verilerin Korunması Kanunu'nun ("KVKK") 10. ma
 - Kimlik ve iletişim bilgileri: ad, soyad, şirket e-posta adresi, görev ve bağlı olunan yönetici
 - Görsel veriler: profil fotoğrafı ve saha ziyaretlerinde çekilen fotoğraflar
 - Konum verileri: yalnızca saha kaydı girilirken veya bayi konumu kaydedilirken, kullanıcının işlemi sırasında alınan konum
-- Uygulama kullanım verileri: giriş zamanları, uygulamanın kullanıldığı günler ve uygulama içinde yapılan işlemlerin kayıtları (kayıt girme, düzenleme, talep, not, dışa aktarma ve benzeri işlemler; işlemi yapan kişi ve zamanı)
+- Uygulama kullanım verileri: giriş zamanları, uygulamanın kullanıldığı günler, uygulama içinde görüntülenen sayfalar ve yapılan işlemlerin kayıtları (kayıt girme, düzenleme, talep, not, dışa aktarma ve benzeri işlemler; işlemi yapan kişi ve zamanı)
 - Uygulamaya girilen iş içerikleri: bayi ziyaret kayıtları, notlar, talepler, pano paylaşımları
 
 2. İşleme amaçları

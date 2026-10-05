@@ -892,3 +892,4 @@ a.rc-title:hover { color: var(--red); }
 .kvkk-text { white-space: pre-wrap; font-size: 13.5px; line-height: 1.55; color: var(--ink-2); background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 14px; max-height: 50vh; overflow-y: auto; }
 .kvkk-check { display: flex; align-items: flex-start; gap: 10px; margin-top: 14px; font-weight: 700; font-size: 14.5px; cursor: pointer; }
 .kvkk-check input { width: 20px; height: 20px; accent-color: var(--red); flex-shrink: 0; margin-top: 1px; }
+.act-tag.g-gezinti { background: transparent; border: 1px solid var(--border); color: var(--faint); }

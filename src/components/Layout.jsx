@@ -8,6 +8,7 @@ import { clearSyncError, useOnline, useSyncState } from '../utils/offline';
 import { useTheme } from '../utils/theme';
 import { useNavCounts } from '../utils/navCounts';
 import { trTitle } from '../utils/text';
+import { logPageView } from '../utils/activity';
 import { useRepProfiles } from '../utils/repProfiles';
 import { db } from '../firebase';
 import { fold, getDealerIndex } from '../utils/dealerIndex';
@@ -141,6 +142,8 @@ function QuickSearch() {
 export default function Layout({ children }) {
   const { user, userRole, userProfile, personKey, isOwner, canRegister } = useAuth();
   const { pathname } = useLocation();
+  // Sayfa gezintisi günlüğe yazılır (sadece sahip görür)
+  useEffect(() => { logPageView(pathname); }, [pathname]);
   const counts = useNavCounts();
   const profiles = useRepProfiles(db);
   const regsLabel = userRole === 'rep' ? 'Kayıtlarım' : 'Kayıtlar';

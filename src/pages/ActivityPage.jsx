@@ -32,6 +32,7 @@ export default function ActivityPage() {
   const [period, setPeriod] = useState('');
   const [q, setQ] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [showViews, setShowViews] = useState(false); // sayfa gezintileri varsayılan olarak gizli
 
   useEffect(() => {
     purgeOldActivity().catch(() => {});
@@ -55,6 +56,7 @@ export default function ActivityPage() {
     return rowsN.filter((r) => {
       if (who && r.byName !== who) return false;
       if (group && ACTIVITY_TYPES[r.type]?.group !== group) return false;
+      if (r.type === 'page.view' && !showViews && group !== 'Gezinti') return false;
       if (since && (!r.date || r.date.getTime() < since)) return false;
       if (words.length) {
         const hay = fold(`${r.dealerName || names.get(r.dealerId) || ''} ${r.dealerId || ''} ${r.detail || ''} ${ACTIVITY_TYPES[r.type]?.label || r.type}`);
@@ -62,13 +64,13 @@ export default function ActivityPage() {
       }
       return true;
     });
-  }, [rowsN, who, group, period, q, names]);
+  }, [rowsN, who, group, period, q, names, showViews]);
 
   // Son 7 gün: kişi başına işlem sayısı
   const weekly = useMemo(() => {
     const since = Date.now() - 7 * 86400000;
     const m = new Map();
-    rowsN.forEach((r) => { if (r.date && r.date.getTime() >= since && r.type !== 'auth.login') m.set(r.byName, (m.get(r.byName) || 0) + 1); });
+    rowsN.forEach((r) => { if (r.date && r.date.getTime() >= since && r.type !== 'auth.login' && r.type !== 'page.view') m.set(r.byName, (m.get(r.byName) || 0) + 1); });
     return [...m.entries()].sort((a, b) => b[1] - a[1]);
   }, [rowsN]);
 
@@ -132,6 +134,10 @@ export default function ActivityPage() {
             <option value="7">Son 7 gün</option>
           </select>
         </div>
+        <label className="check mt-12" style={{ display: 'flex' }}>
+          <input type="checkbox" checked={showViews || group === 'Gezinti'} disabled={group === 'Gezinti'} onChange={(e) => setShowViews(e.target.checked)} />
+          Sayfa gezintilerini de göster
+        </label>
       </div>
 
       {!rows && !error && <SkeletonRows rows={6} />}
@@ -148,10 +154,10 @@ export default function ActivityPage() {
                   <span className="act-time num">{r.date ? r.date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : '…'}</span>
                   <Avatar name={r.byName} src={keyOf(r.byName)} size={30} />
                   <div style={{ minWidth: 0, flex: 1 }}>
-                    <div className="act-main"><b>{r.byName}</b> {t ? t.label.charAt(0).toLocaleLowerCase('tr-TR') + t.label.slice(1) : r.type}
+                    <div className="act-main"><b>{r.byName}</b> {r.type === 'page.view' ? <>sayfa açtı: <b>{r.detail}</b></> : t ? t.label.charAt(0).toLocaleLowerCase('tr-TR') + t.label.slice(1) : r.type}
                       {dn && <> · {r.dealerId ? <Link to={`/dealers/${encodeURIComponent(r.dealerId)}`}>{dn}</Link> : dn}</>}
                     </div>
-                    {r.detail && <div className="act-detail">{r.detail}</div>}
+                    {r.detail && r.type !== 'page.view' && <div className="act-detail">{r.detail}</div>}
                   </div>
                   <span className={`act-tag g-${(t?.group || '').toLocaleLowerCase('tr-TR')}`}>{t?.group || 'Diğer'}</span>
                 </div>

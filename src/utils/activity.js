@@ -41,7 +41,37 @@ export const ACTIVITY_TYPES = {
   'team.remove': { label: 'Kişiyi ekipten çıkardı', group: 'Yönetim' },
   'sync.upload': { label: 'Customer Data yükledi', group: 'Yönetim' },
   'backup.run': { label: 'Yedek aldı', group: 'Yönetim' },
+  'page.view': { label: 'Sayfa görüntüledi', group: 'Gezinti' },
 };
+
+// Sayfa adresinden okunur ad
+export function pageLabel(path) {
+  if (path === '/') return 'Ana Sayfa';
+  if (path === '/dealers') return 'Bayiler';
+  if (path.startsWith('/dealers/')) return 'Bayi sayfası';
+  if (path === '/registrations/new') return 'Yeni kayıt formu';
+  if (path === '/registrations') return 'Kayıtlar';
+  if (path === '/requests') return 'Talepler';
+  if (path === '/pano') return 'Pano';
+  if (path === '/dashboard') return 'Dashboard';
+  if (path === '/admin') return 'Yönetim';
+  if (path === '/admin/users') return 'Ekip ve kullanıcılar';
+  if (path === '/admin/sync') return 'Veri Yükle';
+  if (path === '/admin/backup') return 'Yedek';
+  if (path === '/admin/kvkk') return 'Aydınlatma metni';
+  return path;
+}
+
+// Sayfa görüntüleme: aynı sayfa 1 dakika içinde tekrar açılırsa yazılmaz; günlük sayfasının kendisi yazılmaz
+const lastView = new Map();
+export function logPageView(path) {
+  if (path === '/admin/activity' || path === '/login') return;
+  const now = Date.now();
+  if (now - (lastView.get(path) || 0) < 60 * 1000) return;
+  lastView.set(path, now);
+  const m = path.match(/^\/dealers\/([^/]+)$/);
+  logActivity('page.view', { dealerId: m ? decodeURIComponent(m[1]) : null, detail: pageLabel(path) });
+}
 
 let actor = null;
 // AuthContext profil yüklenince çağırır

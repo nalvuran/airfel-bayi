@@ -23,3 +23,21 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
     navigator.serviceWorker.register('/sw.js').catch(() => { /* desteklenmiyorsa uygulama normal çalışır */ });
   });
 }
+
+// İnternetliyken, henüz açılmamış sayfaların dosyalarını da telefona kaydet:
+// sonradan zayıf ya da kısıtlı bağlantıda açılınca beklemeden gelsinler.
+if (import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      if (!navigator.onLine) return;
+      [
+        () => import('./pages/DashboardPage'),
+        () => import('./pages/ActivityPage'),
+        () => import('./pages/SyncPage'),
+        () => import('./pages/BackupPage'),
+        () => import('./pages/KvkkAdminPage'),
+        () => import('xlsx'),
+      ].forEach((load) => load().catch(() => {}));
+    }, 5000);
+  });
+}

@@ -2,14 +2,21 @@
    Veriler (bayiler, kayıtlar, fotoğraflar) burada değil, Firebase'in kendi çevrimdışı deposunda tutulur.
    v2: sayfa açılışında ağ 3,5 saniyede cevap vermezse telefondaki kopyayla açılır.
        Sayfa iskeleti (index.html), istediği bütün dosyalar kaydedildikten sonra güncellenir: kopya her zaman eksiksizdir. */
-const SHELL = 'airfel-shell-v1';
+const SHELL = 'airfel-shell-v2'; // v2: yönlendirmeli kopyalar temizlensin
 const ASSETS = 'airfel-assets-v1';
-const SHELL_FILES = ['/', '/index.html', '/manifest.webmanifest', '/logo.png', '/logo-full.png', '/favicon.png', '/icon-192.png', '/apple-touch-icon.png'];
+const SHELL_FILES = ['/manifest.webmanifest', '/logo.png', '/logo-full.png', '/favicon.png', '/icon-192.png', '/apple-touch-icon.png'];
 const MAX_ASSETS = 150;
 const NAV_TIMEOUT_MS = 3500;
 
+// Yönlendirmeyle gelmiş bir cevabı temiz bir kopyaya çevir: Safari yönlendirmeli kopyayı sayfa olarak açmaz
+async function clean(res) {
+  if (!res || !res.redirected) return res;
+  return new Response(await res.blob(), { status: res.status, statusText: res.statusText, headers: res.headers });
+}
+
 // Sayfa iskeletini, istediği /assets/ dosyalarıyla birlikte kaydet (önce dosyalar, sonra iskelet)
-async function saveIndex(res) {
+async function saveIndex(res0) {
+  const res = await clean(res0);
   const html = await res.clone().text();
   const urls = [...new Set([...html.matchAll(/(?:src|href)="(\/assets\/[^"]+)"/g)].map((m) => m[1]))];
   const ac = await caches.open(ASSETS);
@@ -26,7 +33,7 @@ async function saveIndex(res) {
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(SHELL).then((c) => c.addAll(SHELL_FILES.filter((f) => f !== '/index.html' && f !== '/')))
-      .then(() => fetch('/index.html', { cache: 'no-store' }).then((r) => (r.ok ? saveIndex(r) : null)).catch(() => {}))
+      .then(() => fetch('/', { cache: 'no-store' }).then((r) => (r.ok ? saveIndex(r) : null)).catch(() => {}))
       .then(() => self.skipWaiting()),
   );
 });
@@ -59,9 +66,9 @@ self.addEventListener('fetch', (event) => {
     // Geç gelse de yeni sürüm (dosyalarıyla birlikte) kaydedilsin
     event.waitUntil(net.then((res) => (res.ok && (res.headers.get('content-type') || '').includes('text/html') ? saveIndex(res.clone()) : null)).catch(() => {}));
     event.respondWith((async () => {
-      const cached = await caches.match('/index.html');
-      if (!cached) return net.catch(() => caches.match('/index.html'));
-      const res = await Promise.race([net.catch(() => null), new Promise((r) => setTimeout(() => r(null), NAV_TIMEOUT_MS))]);
+      const cached = await clean(await caches.match('/index.html'));
+      if (!cached) return net.then(clean).catch(() => caches.match('/index.html').then(clean));
+      const res = await Promise.race([net.then(clean).catch(() => null), new Promise((r) => setTimeout(() => r(null), NAV_TIMEOUT_MS))]);
       return res || cached;
     })());
     return;

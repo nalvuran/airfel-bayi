@@ -12,6 +12,7 @@ import { squareAvatar } from '../utils/image';
 import { presenceInfo } from '../utils/presence';
 import { logActivity } from '../utils/activity';
 import { Alert, Avatar, Badge, Card, PageHeader } from '../components/ui';
+import { APP_BUILD, buildLabel } from '../utils/version';
 
 const AUTH_ERRORS = {
   'auth/email-already-in-use': 'Bu e-posta ile zaten bir hesap var. Firebase Console > Authentication bölümünden kontrol et.',
@@ -282,6 +283,12 @@ function AccountRow({ u, team, isSelf, onChanged }) {
             return (
               <div className="text-xs" style={{ fontWeight: 700, marginTop: 3, color: pi.tone === 'success' ? 'var(--green)' : pi.tone === 'warn' ? 'var(--amber)' : 'var(--ink-2)' }}>
                 {pi.text}{pi.days30 ? ` · son 30 günde ${pi.days30} gün kullandı` : ''}
+                {' · '}
+                {!u.appBuild
+                  ? <span style={{ color: 'var(--amber)' }}>Sürüm bilinmiyor (eski sürüm)</span>
+                  : u.appBuild === APP_BUILD
+                    ? <span style={{ color: 'var(--green)' }}>Güncel sürüm</span>
+                    : <span style={{ color: 'var(--amber)' }}>Eski sürüm: V{u.appVersion} ({buildLabel(u.appBuild)})</span>}
               </div>
             );
           })()}

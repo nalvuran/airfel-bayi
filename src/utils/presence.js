@@ -2,6 +2,8 @@
 // "Son görülme": uygulama açıldığında ve arka plandan geri gelindiğinde (en fazla saatte bir)
 // kullanıcının kendi profiline son görülme zamanı ve o günün tarihi yazılır. Sadece sahip görür.
 import { deleteField, doc, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { APP_BUILD, APP_VERSION } from './version';
+import { logActivity } from './activity';
 
 const KEY = 'airfel.lastTouch';
 const EVERY_MS = 60 * 60 * 1000;
@@ -16,12 +18,14 @@ export function touchPresence(db, uid, profile) {
     localStorage.setItem(`${KEY}.${uid}`, String(Date.now()));
   } catch { /* gizli sekme: yine de yaz */ }
 
-  const update = { lastSeenAt: serverTimestamp(), [`activeDays.${dayStr(new Date())}`]: true };
+  const update = { lastSeenAt: serverTimestamp(), [`activeDays.${dayStr(new Date())}`]: true, appVersion: APP_VERSION, appBuild: APP_BUILD };
   // 60 günden eski günleri temizle (alan büyümesin)
   const limit = new Date(Date.now() - KEEP_DAYS * 86400000);
   Object.keys(profile?.activeDays || {}).forEach((d) => { if (d < dayStr(limit)) update[`activeDays.${d}`] = deleteField(); });
   // Beklemeden gönder; bağlantı yoksa Firebase sıraya alır
   updateDoc(doc(db, 'users', uid), update).catch(() => {});
+  // Hareket günlüğüne de yaz: "son görülme" ile günlük birbirini tutsun
+  logActivity('app.open', { detail: `V${APP_VERSION}` });
 }
 
 export function startPresence(db, uid, profile) {

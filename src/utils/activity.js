@@ -8,6 +8,7 @@ export const RETENTION_DAYS = 30;
 
 export const ACTIVITY_TYPES = {
   'auth.login': { label: 'Giriş yaptı', group: 'Hesap' },
+  'app.open': { label: 'Uygulamayı açtı', group: 'Hesap' },
   'kvkk.accept': { label: 'Aydınlatma metnini onayladı', group: 'Hesap' },
   'registration.create': { label: 'Saha kaydı girdi', group: 'Kayıt' },
   'registration.edit': { label: 'Kaydı düzenledi', group: 'Kayıt' },

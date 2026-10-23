@@ -242,7 +242,7 @@ export default function DashboardPage() {
       };
     });
     const trendTeams = splitTeams
-      ? [...team.managers.map((m) => ({ key: m.key, name: m.name })), ...(weeks.some((w) => w.byTeam.diger) ? [{ key: 'diger', name: 'Ekip dışı' }] : [])]
+      ? [...team.managers.filter((m) => team.reps.some((r) => r.managerKey === m.key)).map((m) => ({ key: m.key, name: m.name })), ...(weeks.some((w) => w.byTeam.diger) ? [{ key: 'diger', name: 'Ekip dışı' }] : [])]
       : [];
 
     // Kurulum durumu

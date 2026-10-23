@@ -12,17 +12,19 @@ export function useScope(defaults = {}, initial = null) {
   const team = useTeam();
   const myRepKey = userProfile?.salesRepKey || null;
 
+  // Altında temsilci olmayan bölge müdürlerinin (ör. sadece izleyen biri) ekibi seçenek olarak çıkmaz
+  const hasReps = (key) => repKeysUnder(team.people, key).size > 0;
   const options = useMemo(() => {
     const o = [];
     if (myRepKey) o.push({ value: 'mine', label: 'Benim' });
-    if (userRole === 'regionManager') o.push({ value: 'team', label: 'Ekibim' });
+    if (userRole === 'regionManager' && hasReps(personKey)) o.push({ value: 'team', label: 'Ekibim' });
     o.push({ value: 'all', label: 'Tümü' });
     // Sahip ve müdürler bölge ekiplerini ayrı ayrı seçebilir (bölge müdürünün kendi ekibi "Ekibim" olarak zaten var)
     if (userRole === 'owner' || userRole === 'deptManager' || userRole === 'regionManager') {
-      team.managers.filter((m) => m.key !== personKey).forEach((m) => o.push({ value: `mgr:${m.key}`, label: `${m.name} ekibi` }));
+      team.managers.filter((m) => m.key !== personKey && hasReps(m.key)).forEach((m) => o.push({ value: `mgr:${m.key}`, label: `${m.name} ekibi` }));
     }
     return o;
-  }, [myRepKey, userRole, team.managers, personKey]);
+  }, [myRepKey, userRole, team.managers, team.people, personKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fallback = defaults[userRole] || 'all';
   const [scope, setScope] = useState(initial || fallback);

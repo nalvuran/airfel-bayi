@@ -151,7 +151,7 @@ export default function DealerDetailPage() {
   const back = { to: '/dealers', label: 'Bayiler' };
   if (error) return <div className="page"><Link to="/dealers" className="back-link">← Bayiler</Link><Alert tone="danger">Bayi yüklenemedi: {error}</Alert></div>;
   if (dealer === undefined) return <DetailSkeleton />;
-  if (dealer === null) return <div className="page"><Link to="/dealers" className="back-link">← Bayiler</Link><Alert tone="warn">Bu kodla bir bayi bulunamadı: {id}</Alert></div>;
+  if (dealer === null) return <div className="page"><Link to="/dealers" className="back-link">← Bayiler</Link><Alert tone="warn">{hideSales ? `Bu bayinin bilgileri henüz hazır değil (${id}). Yönetici uygulamayı açınca hazır olur; biraz sonra tekrar dene.` : `Bu kodla bir bayi bulunamadı: ${id}`}</Alert></div>;
 
   return (
     <div className="page-narrow" style={{ maxWidth: 1000 }}>

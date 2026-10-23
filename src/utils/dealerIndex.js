@@ -135,6 +135,7 @@ export function clearDealerIndexCache() { cache = null; }
 
 export async function loadDealerIndex(db) {
   const snap = await getDocs(collection(db, salesHidden ? LITE : COLL));
+  if (snap.empty && salesHidden) throw new Error('Bayi listesi henüz hazırlanmadı. Yönetici uygulamayı bir kez açınca hazır olur; biraz sonra tekrar dene.');
   if (snap.empty) return { entries: [], updatedAt: null };
   const docs = snap.docs.map((d) => d.data()).sort((a, b) => a.part - b.part);
   if (docs.length !== docs[0].parts) throw new Error('Bayi dizini eksik görünüyor. Veri Yükle sayfasından dizini yeniden oluştur.');
@@ -146,4 +147,16 @@ export async function loadDealerIndex(db) {
   }));
   // entries: güncel Customer Data'daki bayiler. all: listeden çıkanlar dahil (geçmiş kayıtların adları için)
   return { entries: all.filter((e) => !e.gone), all, updatedAt: docs[0].updatedAt?.toDate?.() ?? null };
+}
+
+// Sahip girişinde: satışsız kopya yoksa ya da tam dizinden eskiyse, tam dizinden üretir (bayi kayıtlarını okumadan)
+export async function ensureLiteIndex(db) {
+  const [full, lite] = await Promise.all([getDocs(collection(db, COLL)), getDocs(collection(db, LITE))]);
+  if (full.empty) return false;
+  const ts = (snap) => Math.max(0, ...snap.docs.map((d) => d.data().updatedAt?.toMillis?.() ?? 0));
+  const fullCount = full.docs[0].data().count;
+  if (!lite.empty && ts(lite) >= ts(full) && lite.docs[0].data().count === fullCount) return false;
+  const entries = full.docs.map((d) => d.data()).sort((a, b) => a.part - b.part).flatMap((d) => JSON.parse(d.json));
+  await writeChunks(db, LITE, entries.map(toLite));
+  return true;
 }

@@ -9,12 +9,14 @@ import { exportDealers } from '../utils/exportExcel';
 import { loadDealerLocations } from '../utils/dealerLocations';
 import { getRegistrations } from '../utils/registrationStore';
 import { useScope } from '../utils/scope';
+import { useAuth } from '../contexts/AuthContext';
 import ScopePicker from '../components/ScopePicker';
 
 const PAGE = 100;
 const trSort = (a, b) => a.localeCompare(b, 'tr');
 
 export default function DealersPage() {
+  const { hideSales } = useAuth();
   const [params] = useSearchParams();
   const sc = useScope({ rep: 'mine', owner: 'mine', regionManager: 'team', deptManager: 'all' }, params.get('scope'));
 
@@ -32,7 +34,7 @@ export default function DealersPage() {
   const [loc, setLoc] = useState(params.get('loc') || '');
   const [located, setLocated] = useState(null);
   const [segment, setSegment] = useState('');
-  const [sort, setSort] = useState('sales');
+  const [sort, setSort] = useState(hideSales ? 'name' : 'sales');
   const [limit, setLimit] = useState(PAGE);
   const [showFilters, setShowFilters] = useState(!!(params.get('visit') || params.get('rep') || params.get('status') || params.get('loc')));
   const [exporting, setExporting] = useState(false);
@@ -86,7 +88,7 @@ export default function DealersPage() {
   }, [data, q, sc.scope, sc.repKeys, city, rep, status, segment, sort, visit, visited, loc, located]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const anyFilter = q || city || rep || status || segment || visit || loc;
-  const activeFilters = [city, rep, status, segment, visit, loc].filter(Boolean).length + (sort !== 'sales' ? 1 : 0);
+  const activeFilters = [city, rep, status, segment, visit, loc].filter(Boolean).length + (sort !== (hideSales ? 'name' : 'sales') ? 1 : 0);
   const clearAll = () => { setQ(''); setCity(''); setRep(''); setStatus(''); setSegment(''); setVisit(''); setLoc(''); };
 
   if (error) return <div className="page"><Alert tone="danger">{error}</Alert></div>;
@@ -148,7 +150,7 @@ export default function DealersPage() {
             <option value="known">Konumu kayıtlı</option>
           </select>
           <select className="select" value={sort} onChange={(e) => setSort(e.target.value)}>
-            <option value="sales">FY26 devreye alıma göre</option>
+            {!hideSales && <option value="sales">FY26 devreye alıma göre</option>}
             <option value="name">Ada göre (A-Z)</option>
           </select>
         </div>
@@ -180,9 +182,11 @@ export default function DealersPage() {
                   </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div className="num" style={{ fontSize: 15, fontWeight: 800 }}>
-                    {fmtNum(e.q)} <span className="text-xs muted" style={{ fontWeight: 600 }}>FY26</span>
-                  </div>
+                  {!hideSales && (
+                    <div className="num" style={{ fontSize: 15, fontWeight: 800 }}>
+                      {fmtNum(e.q)} <span className="text-xs muted" style={{ fontWeight: 600 }}>FY26</span>
+                    </div>
+                  )}
                   <div style={{ marginTop: 4 }}><StatusBadge status={e.s} /></div>
                 </div>
               </div>

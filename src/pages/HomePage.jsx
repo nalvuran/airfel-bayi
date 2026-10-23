@@ -56,7 +56,7 @@ function Kpi({ to, value, label, sub, tone }) {
 }
 
 export default function HomePage() {
-  const { user, userRole, userProfile, personKey, isOwner, canRegister } = useAuth();
+  const { user, userRole, userProfile, personKey, isOwner, canRegister, hideSales } = useAuth();
   const sc = useScope({ rep: 'mine', owner: 'mine', regionManager: 'team', deptManager: 'all' });
   const profiles = useRepProfiles(db);
   const lastBackup = useLastBackup(isOwner);
@@ -244,7 +244,7 @@ export default function HomePage() {
 
         <HCard to="/dashboard" icon={<Chart />} tone="green" title="Dashboard" desc="Ziyaret trendi, kurulumlar, kapsama ve rakipler"
           badge={d?.declineTotal ? <Badge tone="danger">{d.declineTotal} düşüşte</Badge> : null}>
-          {d && (d.silent.length === 0 ? <p className="text-sm muted" style={{ margin: 0 }}>Bu yıl alımı duran bayi yok.</p> : (
+          {d && (hideSales ? <p className="text-sm muted" style={{ margin: 0 }}>Haftalık ziyaretler, kurulum durumu ve temsilci kapsaması.</p> : d.silent.length === 0 ? <p className="text-sm muted" style={{ margin: 0 }}>Bu yıl alımı duran bayi yok.</p> : (
             <>
               <div className="text-xs muted" style={{ fontWeight: 700, marginBottom: 6 }}>Bu yıl hiç almayan, geçen yıl güçlü bayiler</div>
               <div className="mini-table">

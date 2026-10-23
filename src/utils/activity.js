@@ -39,6 +39,7 @@ export const ACTIVITY_TYPES = {
   'user.active': { label: 'Hesabı aktif yaptı', group: 'Yönetim' },
   'user.inactive': { label: 'Hesabı pasif yaptı', group: 'Yönetim' },
   'user.link': { label: 'Hesabı ekiple eşleştirdi', group: 'Yönetim' },
+  'user.sales': { label: 'Satış rakamı görünürlüğünü değiştirdi', group: 'Yönetim' },
   'team.save': { label: 'Ekip bilgisini değiştirdi', group: 'Yönetim' },
   'team.remove': { label: 'Kişiyi ekipten çıkardı', group: 'Yönetim' },
   'sync.upload': { label: 'Customer Data yükledi', group: 'Yönetim' },

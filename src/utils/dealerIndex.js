@@ -4,6 +4,15 @@
 import { collection, doc, getDocs, writeBatch } from 'firebase/firestore';
 
 const COLL = 'dealerIndex';
+// Satış rakamları gizlenen kullanıcılar (users/{uid}.hideSales) bu kopyayı okur: içinde devreye alım rakamları yok.
+// Güvenlik kuralları bu kullanıcıların dealerIndex, dealers ve snapshots okumasını engeller.
+const LITE = 'dealerIndexLite';
+let salesHidden = false;
+export function setSalesHidden(v) {
+  if (salesHidden !== !!v) { salesHidden = !!v; cache = null; }
+}
+export const isSalesHidden = () => salesHidden;
+const toLite = ({ q, v, f, ...e }) => e; // eslint-disable-line no-unused-vars
 const CHUNK_CHARS = 700_000; // Firestore doküman sınırı 1 MB; pay bırakıyoruz
 
 // Bayinin Customer Data'dan gelen bilgilerinin parmak izi: yüklemede sadece değişen bayileri yazmak için
@@ -42,11 +51,18 @@ export function toIndexEntry(id, d) {
     // Devreye alım: [kombi24, klima24, kombi25, klima25, kombi26, klima26] (CB = kombi, AC = klima)
     v: ['fy24', 'fy25', 'fy26'].flatMap((y) => [d.sales?.[y]?.cb ?? 0, d.sales?.[y]?.ac ?? 0]),
     m: d.regionManager ?? '',
+    // Bayi sayfasındaki bilgiler (satış rakamı görmeyenler bayinin tam kaydını okuyamaz, buradan gösterilir)
+    p: d.platformId ?? '',
+    e: d.region ?? '',
+    sb: d.sapNo ?? '',
+    cc: d.currentClass ?? '',
+    ss: d.servicesStatus ?? '',
+    cd: norm(d.createdDate) ?? '',
     h: dealerHash(d),
   };
 }
 
-export async function writeDealerIndex(db, entries) {
+function toChunks(entries) {
   const chunks = [];
   let cur = [];
   let size = 2;
@@ -56,24 +72,39 @@ export async function writeDealerIndex(db, entries) {
     cur.push(e); size += len;
   }
   if (cur.length) chunks.push(cur);
+  return chunks;
+}
 
-  const existing = await getDocs(collection(db, COLL));
+async function writeChunks(db, coll, entries) {
+  const chunks = toChunks(entries);
+  const existing = await getDocs(collection(db, coll));
   const batch = writeBatch(db);
   const updatedAt = new Date();
   chunks.forEach((c, part) => {
-    batch.set(doc(db, COLL, `chunk-${part}`), {
+    batch.set(doc(db, coll, `chunk-${part}`), {
       part, parts: chunks.length, count: entries.length, updatedAt, json: JSON.stringify(c),
     });
   });
   // eski, artık kullanılmayan parçaları sil
   existing.docs.forEach((d) => { if ((d.data().part ?? 0) >= chunks.length) batch.delete(d.ref); });
   await batch.commit();
-  return { parts: chunks.length, count: entries.length };
+  return chunks.length;
 }
 
+export async function writeDealerIndex(db, entries) {
+  const parts = await writeChunks(db, COLL, entries);
+  await writeChunks(db, LITE, entries.map(toLite));
+  return { parts, count: entries.length };
+}
+
+// Dizini (ve satışsız kopyasını) bayi kayıtlarından yeniden kurar.
+// Güncel listeden çıkmış bayilerin "gizli" işareti eski dizinden korunur.
 export async function rebuildDealerIndexFromFirestore(db) {
+  const old = await getDocs(collection(db, COLL)).catch(() => null);
+  const gone = new Set();
+  old?.docs.forEach((d) => { try { JSON.parse(d.data().json).forEach((e) => { if (e.gone) gone.add(e.i); }); } catch { /* bozuk parça */ } });
   const snap = await getDocs(collection(db, 'dealers'));
-  const entries = snap.docs.map((d) => toIndexEntry(d.id, d.data()));
+  const entries = snap.docs.map((d) => ({ ...toIndexEntry(d.id, d.data()), ...(gone.has(d.id) ? { gone: 1 } : {}) }));
   return writeDealerIndex(db, entries);
 }
 
@@ -103,12 +134,13 @@ export function getCachedDealerIndex() { return cache; }
 export function clearDealerIndexCache() { cache = null; }
 
 export async function loadDealerIndex(db) {
-  const snap = await getDocs(collection(db, COLL));
+  const snap = await getDocs(collection(db, salesHidden ? LITE : COLL));
   if (snap.empty) return { entries: [], updatedAt: null };
   const docs = snap.docs.map((d) => d.data()).sort((a, b) => a.part - b.part);
   if (docs.length !== docs[0].parts) throw new Error('Bayi dizini eksik görünüyor. Veri Yükle sayfasından dizini yeniden oluştur.');
   const all = docs.flatMap((d) => JSON.parse(d.json)).map((e) => ({
-    v: null, // eski dizinde devreye alım rakamları yok; dizin yeniden oluşturulunca gelir
+    v: null, // eski dizinde ve satışsız kopyada devreye alım rakamları yok
+    q: 0,
     ...e,
     search: fold(`${e.n} ${e.i} ${e.d} ${e.c}`),
   }));

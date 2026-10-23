@@ -104,12 +104,12 @@ export function DealerFollowUp({ dealer }) {
 
 /* ---------- Sattığı markalar (en son ziyaret kaydından) ---------- */
 
-export function DealerBrands({ regs, sales }) {
+export function DealerBrands({ regs, sales, hideShare }) {
   const last = (regs || []).find((r) => Array.isArray(r.brands));
   if (!regs) return null;
   const q = last?.brandQty || {};
   const airfelFy25 = (sales?.fy25?.cb || 0) + (sales?.fy25?.ac || 0);
-  const share = last ? marketShare(airfelFy25, last) : null;
+  const share = last && !hideShare ? marketShare(airfelFy25, last) : null;
   return (
     <Card title="Sattığı markalar">
       {!last ? (

@@ -77,7 +77,7 @@ function QuickSearch() {
   const [active, setActive] = useState(-1);
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const { userProfile } = useAuth();
+  const { userProfile, hideSales } = useAuth();
   const myKey = userProfile?.salesRepKey || null;
   const box = useRef(null);
 
@@ -126,7 +126,7 @@ function QuickSearch() {
                 <span className="qs-name">{e.n}</span>
                 <span className="qs-meta">{e.i.startsWith('NOID-') ? '' : `${e.i} · `}{[e.d, e.c].filter(Boolean).join(', ')}{e.k === myKey ? ' · senin bayin' : e.r ? ` · ${e.r}` : ''}</span>
               </span>
-              <span className="qs-q num">{Number(e.q || 0).toLocaleString('tr-TR')}<small> FY26</small></span>
+              {!hideSales && <span className="qs-q num">{Number(e.q || 0).toLocaleString('tr-TR')}<small> FY26</small></span>}
             </button>
           ))}
           <button type="button" className="qs-all" onClick={goAll}>Tüm sonuçları gör ({total.toLocaleString('tr-TR')}) →</button>

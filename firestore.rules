@@ -20,6 +20,9 @@ service cloud.firestore {
     function canOpenRequest() { return canRegister() || isRegionManager(); }       // talep açma
     function canPin() { return isOwner() || isRegionManager() || isDeptManager(); } // panoda sabitleme
     function myRepKey() { return me().get('salesRepKey', null); }
+    // Satış (devreye alım) rakamlarını görebilir mi? Sahip, kullanıcının profilinde hideSales: true yaparak kapatır.
+    // Kapalı olan kullanıcı bayi kayıtlarını, tam bayi dizinini ve yükleme geçmişini okuyamaz; satışsız dizini okur.
+    function seesSales() { return isActive() && (isOwner() || me().get('hideSales', false) != true); }
     function regPath(regId) { return /databases/$(database)/documents/registrations/$(regId); }
     // Kaydı giren temsilci ya da kayıt onun temsilci adına kayıtlı (eski sistem kayıtları)
     function ownsRegData(r) {
@@ -49,7 +52,7 @@ service cloud.firestore {
 
     // ---------- Bayi verisi (Customer Data) ----------
     match /dealers/{dealerId} {
-      allow read: if isActive();
+      allow read: if seesSales();
       allow write: if isOwner();
 
       // Bayi notları: herkes okur ve yazar; yazan kendi notunu düzenler ve siler, sahip her notu silebilir
@@ -69,6 +72,11 @@ service cloud.firestore {
       }
     }
     match /dealerIndex/{chunkId} {
+      allow read: if seesSales();
+      allow write: if isOwner();
+    }
+    // Satış rakamları çıkarılmış bayi dizini (satış görmeyen kullanıcılar için)
+    match /dealerIndexLite/{chunkId} {
       allow read: if isActive();
       allow write: if isOwner();
     }
@@ -207,7 +215,7 @@ service cloud.firestore {
 
     // ---------- Customer Data yükleme fotoğrafları (dönemsel devreye alım geçmişi) ----------
     match /snapshots/{day} {
-      allow read: if isActive();
+      allow read: if seesSales();
       allow write: if isOwner();
     }
 

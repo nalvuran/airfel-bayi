@@ -4,6 +4,7 @@ import { doc, getDoc, getDocFromCache } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { startPresence } from '../utils/presence';
 import { logActivity, setActivityActor } from '../utils/activity';
+import { setSalesHidden } from '../utils/dealerIndex';
 
 const AuthContext = createContext(null);
 
@@ -69,6 +70,8 @@ export function AuthProvider({ children }) {
         }
         setAuthError('');
         setUserRole(normalizeRole(profile.role));
+        // Sahip dışında, satış rakamları kapatılmış kullanıcı (Ekip sayfasından)
+        setSalesHidden(profile.hideSales === true && normalizeRole(profile.role) !== 'owner');
         setUserProfile(profile);
         setActivityActor({ uid: firebaseUser.uid, name: profile.name || firebaseUser.email, role: normalizeRole(profile.role) });
         // Giriş kaydı, kişinin adı belli olduktan sonra yazılır
@@ -93,6 +96,8 @@ export function AuthProvider({ children }) {
       user, userRole, userProfile, authError, loading,
       // Ekip ağacındaki kişi anahtarı (temsilcide Customer Data'daki adı)
       personKey: userProfile?.personKey || userProfile?.salesRepKey || null,
+      // Satış (devreye alım) rakamlarını görmeyen kullanıcı
+      hideSales: userProfile?.hideSales === true && userRole !== 'owner',
       ...permissionsFor(userRole),
     }}>
       {!loading && children}

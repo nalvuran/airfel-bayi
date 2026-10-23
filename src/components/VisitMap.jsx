@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { REGIONS_TR, approxLocation, regionOf } from '../utils/geoTR';
+import { isSalesHidden } from '../utils/dealerIndex';
 
 const DISTRICT_ZOOM = 8; // bu yakınlaştırma ve üstü: ilçe düzeyinde
 const REGION_ZOOM = 4;   // bu yakınlaştırma ve altı (telefonda açılış): coğrafi bölge düzeyinde
@@ -93,7 +94,7 @@ export default function VisitMap({ points, groups, scope }) {
       g.items.slice(0, 5).forEach((it) => {
         const a = el('a', 'display:flex;justify-content:space-between;gap:8px;font-size:12px;font-weight:700;color:inherit;text-decoration:none;padding:3px 0;border-top:1px solid rgba(128,128,128,.2)');
         a.href = '#';
-        a.append(el('span', 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap', it.n), el('span', 'color:#767069;flex-shrink:0', `${fmt(it.q)} FY26`));
+        a.append(el('span', 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap', it.n), el('span', 'color:#767069;flex-shrink:0', isSalesHidden() ? '' : `${fmt(it.q)} FY26`));
         a.onclick = go(`/dealers/${encodeURIComponent(it.i)}`);
         pop.append(a);
       });

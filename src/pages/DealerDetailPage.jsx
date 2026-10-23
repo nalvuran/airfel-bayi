@@ -14,8 +14,12 @@ import { clearRegistrationsCache } from './RegistrationsPage';
 import { installWaitDays, overdueInstall } from '../utils/registrationStore';
 import { getDealerIndex } from '../utils/dealerIndex';
 
-// Devreye alım rakamlarını tüm kullanıcılara göster. Kısıtlamak gerekirse burayı değiştir.
-const SHOW_DEVREYE = true;
+// Satış rakamları kapatılmış kullanıcı bayinin tam kaydını okuyamaz; bilgiler satışsız dizinden gelir
+const fromIndex = (e) => (e ? {
+  name: e.n, city: e.c, district: e.d, status: e.s, sbuSegment: e.g, salesRep: e.r, salesRepKey: e.k, distributor: e.x,
+  regionManager: e.m, platformId: e.p, region: e.e, sapNo: e.sb, currentClass: e.cc, servicesStatus: e.ss,
+  createdDate: e.cd ? new Date(e.cd) : null, sales: null,
+} : null);
 
 const toDate = (v) => (v?.toDate ? v.toDate() : v instanceof Date ? v : null);
 const fmtDate = (v, withTime) => {
@@ -111,7 +115,7 @@ function DetailSkeleton() {
 
 export default function DealerDetailPage() {
   const { id } = useParams();
-  const { user, userProfile, isOwner, isRep, canRegister } = useAuth();
+  const { user, userProfile, isOwner, isRep, canRegister, hideSales } = useAuth();
   const location = useLocation();
   const [notice, setNotice] = useState('');
   const [justSaved] = useState(!!location.state?.saved);
@@ -127,16 +131,18 @@ export default function DealerDetailPage() {
     let cancelled = false;
     setError(null);
     Promise.all([
-      getDoc(doc(db, 'dealers', id)),
+      hideSales
+        ? getDealerIndex(db).then((idx) => fromIndex((idx.all || idx.entries).find((e) => e.i === id)))
+        : getDoc(doc(db, 'dealers', id)).then((d) => (d.exists() ? d.data() : null)),
       getDocs(query(collection(db, 'registrations'), where('dealerId', '==', id))),
     ]).then(([d, r]) => {
       if (cancelled) return;
-      setDealer(d.exists() ? d.data() : null);
+      setDealer(d);
       setRegs(r.docs.map((x) => ({ id: x.id, ...x.data() }))
         .sort((a, b) => (toDate(b.createdAt)?.getTime() ?? 0) - (toDate(a.createdAt)?.getTime() ?? 0)));
     }).catch((e) => { if (!cancelled) setError(e.message); });
     return () => { cancelled = true; };
-  }, [id, reload]);
+  }, [id, reload, hideSales]);
 
   // Sahip her kaydı, temsilci kendi kayıtlarını düzenler; yönetici sadece izler
   const canEdit = (r) => isOwner || (isRep && (r.createdByUid === user?.uid ||
@@ -175,7 +181,7 @@ export default function DealerDetailPage() {
         </div>
       </Card>
 
-      {SHOW_DEVREYE && (
+      {!hideSales && (
         <Card title="Devreye alım (adet)">
           <DevreyeTable sales={dealer.sales} />
           <TrendLine sales={dealer.sales} />
@@ -185,7 +191,7 @@ export default function DealerDetailPage() {
       <DealerLocation dealer={{ i: id, n: dealer.name }} regs={regs} city={dealer.city} district={dealer.district} />
       <DealerFollowUp dealer={{ i: id, n: dealer.name }} />
       <DealerRequests dealer={{ i: id, n: dealer.name }} onOpenPhoto={setLightbox} />
-      <DealerBrands regs={regs} sales={dealer.sales} />
+      <DealerBrands regs={regs} sales={dealer.sales} hideShare={hideSales} />
 
       <DealerNotes dealerId={id} />
 

@@ -296,6 +296,7 @@ function AccountRow({ u, team, isSelf, onChanged }) {
             <Badge tone={isOwnerRow ? 'danger' : undefined}>{ROLE_LABELS[role]}</Badge>
             {!person && <Badge tone="warn">Ekipteki bir kişiye bağlı değil</Badge>}
             {!active && <Badge tone="warn">Pasif</Badge>}
+            {!isOwnerRow && u.hideSales && <Badge tone="warn">Satış rakamlarını görmüyor</Badge>}
           </div>
         </div>
       </div>
@@ -307,6 +308,16 @@ function AccountRow({ u, team, isSelf, onChanged }) {
             <button className="btn-link text-sm" style={{ color: 'var(--muted)' }} disabled={busy}
               onClick={() => (active || window.confirm('Hesap tekrar aktif yapılsın mı?')) && (!active || window.confirm(`${u.name || u.email} pasif yapılsın mı?`)) && run(async () => { await updateDoc(doc(db, 'users', u.id), { active: !active }); logActivity(active ? 'user.inactive' : 'user.active', { detail: u.name || u.email }); })}>
               {active ? 'Pasif yap' : 'Aktif yap'}
+            </button>
+          )}
+          {!isOwnerRow && !isSelf && (
+            <button className="btn-link text-sm" disabled={busy}
+              onClick={() => window.confirm(u.hideSales
+                ? `${u.name || u.email} devreye alım rakamlarını tekrar görebilsin mi?`
+                : `${u.name || u.email} devreye alım rakamlarını görmesin mi? Bayi listesi, bayi sayfası, dashboard ve Excel'de rakamlar gizlenir. Kişi değişikliği bir sonraki girişinde görür.`)
+                && run(async () => { await updateDoc(doc(db, 'users', u.id), { hideSales: !u.hideSales }); logActivity('user.sales', { detail: `${u.name || u.email} · ${u.hideSales ? 'açıldı' : 'kapatıldı'}` }); },
+                  u.hideSales ? 'Satış rakamları açıldı.' : 'Satış rakamları kapatıldı. Kişi uygulamadan çıkıp tekrar girince geçerli olur.')}>
+              {u.hideSales ? 'Satış rakamlarını göster' : 'Satış rakamlarını gizle'}
             </button>
           )}
           {!isOwnerRow && !isSelf && (

@@ -9,6 +9,7 @@ import { useThumbs } from '../utils/thumbs';
 import VisitMap from '../components/VisitMap';
 import { loadRequests } from '../utils/requests';
 import { declineLists } from '../utils/decline';
+import { isSalesHidden } from '../utils/dealerIndex';
 import { BRANDS } from '../utils/catalog';
 import { useScope } from '../utils/scope';
 import { effectiveLocation, loadDealerLocations } from '../utils/dealerLocations';
@@ -120,6 +121,8 @@ export default function DashboardPage() {
   const [locs, setLocs] = useState(null);
   const [mapFilter, setMapFilter] = useState('all');
   const [declineTab, setDeclineTab] = useState('silent');
+  // Satış rakamları kapatılmış kullanıcıda pazar payı, düşüş ve öncelik bölümleri gösterilmez
+  const hideSales = isSalesHidden();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -218,7 +221,7 @@ export default function DashboardPage() {
       }
     });
     const brandRows = BRANDS.map((b) => ({ b, n: brandCounts[b] || 0, q: brandQty[b] || 0 })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n);
-    const share = shareDealers ? { dealers: shareDealers, airfel: shareAirfel, rival: shareRival, pct: pct(shareAirfel, shareAirfel + shareRival) } : null;
+    const share = shareDealers && !isSalesHidden() ? { dealers: shareDealers, airfel: shareAirfel, rival: shareRival, pct: pct(shareAirfel, shareAirfel + shareRival) } : null;
 
     // Son 12 haftanın ziyaretleri (pazartesi başlangıçlı); "Tümü"nde bölge ekiplerine göre
     const SHORT = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
@@ -369,9 +372,16 @@ export default function DashboardPage() {
               </section>
             )}
             <section className="card">
-              <h2 className="card-title">Tahmini Pazar Payı</h2>
-              <div className="card-desc mb-12">Rakip adedi girilmiş bayilerde, Airfel FY25 devreye alımına göre.</div>
-              {data.share ? (
+              <h2 className="card-title">{hideSales ? 'Rakip Markalar' : 'Tahmini Pazar Payı'}</h2>
+              <div className="card-desc mb-12">{hideSales ? 'En çok bayide satılan rakip markalar.' : 'Rakip adedi girilmiş bayilerde, Airfel FY25 devreye alımına göre.'}</div>
+              {hideSales ? (
+                <>
+                  {data.brandRows.filter((x) => x.b !== 'Airfel').slice(0, 6).map((x) => (
+                    <div key={x.b} className="mini-row"><span>{x.b}</span><span className="num">{x.n} bayi{x.q ? ` · ~${fmtNum(x.q)}` : ''}</span></div>
+                  ))}
+                  {data.brandRows.length === 0 && <p className="text-sm muted">Temsilciler ziyaretlerde markaları işaretledikçe burada görünecek.</p>}
+                </>
+              ) : data.share ? (
                 <>
                   <ShareGauge pct={data.share.pct} />
                   <div className="text-xs muted" style={{ fontWeight: 600, textAlign: 'center' }}>
@@ -423,7 +433,7 @@ export default function DashboardPage() {
               </div>
             </div>
             <div className="row mb-12" style={{ gap: 8 }}>
-              {[['all', 'Tümü'], ['visited', 'Ziyaret edilenler'], ['unvisited', 'Hiç ziyaret edilmeyenler'], ['decline', 'Düşüşteki bayiler']].map(([k, l]) => (
+              {[['all', 'Tümü'], ['visited', 'Ziyaret edilenler'], ['unvisited', 'Hiç ziyaret edilmeyenler'], ...(hideSales ? [] : [['decline', 'Düşüşteki bayiler']])].map(([k, l]) => (
                 <button key={k} type="button" className={`pill ${mapFilter === k ? 'active' : ''}`} onClick={() => setMapFilter(k)}>{l}</button>
               ))}
             </div>
@@ -462,7 +472,7 @@ export default function DashboardPage() {
             </section>
           )}
 
-          <section id="dusus" className="card mt-16" style={{ scrollMarginTop: 80 }}>
+          {!hideSales && <section id="dusus" className="card mt-16" style={{ scrollMarginTop: 80 }}>
             <div className="card-header">
               <div>
                 <h2 className="card-title">Düşüşteki Bayiler</h2>
@@ -494,7 +504,7 @@ export default function DashboardPage() {
                 </div>
               </Link>
             ))}
-          </section>
+          </section>}
 
           <Card id="rakip" title="Rakip marka dağılımı" className="mt-16"
             desc={data.brandDealers ? `Markası işaretlenmiş ${fmtNum(data.brandDealers)} bayide, her markanın kaç bayide satıldığı.` : 'Temsilciler ziyaretlerde markaları işaretledikçe burada dağılım oluşacak.'}>
@@ -519,7 +529,7 @@ export default function DashboardPage() {
             ))}
           </Card>
 
-          <Card title="Öncelikli bayiler" desc="FY26 devreye alımı en yüksek olup henüz hiç ziyaret edilmemiş aktif bayiler." className="mt-16" flush>
+          {!hideSales && <Card title="Öncelikli bayiler" desc="FY26 devreye alımı en yüksek olup henüz hiç ziyaret edilmemiş aktif bayiler." className="mt-16" flush>
             {data.priority.length === 0 ? <Empty>Tüm aktif bayiler en az bir kez ziyaret edilmiş.</Empty> : data.priority.map((e, i) => (
               <Link key={e.i} to={`/dealers/${encodeURIComponent(e.i)}`} className="list-row">
                 <div className="row" style={{ flexWrap: 'nowrap', gap: 12 }}>
@@ -539,7 +549,7 @@ export default function DashboardPage() {
                 </div>
               </Link>
             ))}
-          </Card>
+          </Card>}
         </>
       )}
     </div>

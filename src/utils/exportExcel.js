@@ -3,6 +3,7 @@
 import { installWaitDays, overdueInstall, waitingInstall } from './registrationStore';
 import { CATALOG_ITEMS, REQUEST_STATUS, REQUEST_TYPES, TRAINING_TOPICS } from './catalog';
 import { logActivity } from './activity';
+import { isSalesHidden } from './dealerIndex';
 
 const yn = (v) => (v === true ? 'Evet' : v === false ? 'Hayır' : '');
 const today = () => new Date().toISOString().slice(0, 10);
@@ -18,6 +19,7 @@ function installStatus(r) {
 
 // Devreye alım: dizindeki [kombi24, klima24, kombi25, klima25, kombi26, klima26]
 function devreye(v) {
+  if (isSalesHidden()) return {}; // satış rakamı görmeyen kullanıcıya sütunlar hiç eklenmez
   const a = Array.isArray(v) ? v : [];
   return {
     'Kombi 2024': a[0] ?? '', 'Klima 2024': a[1] ?? '',
@@ -99,8 +101,7 @@ function exportDealers__(entries, regs, locs = {}) {
       'Temsilci': e.r,
       'Distribütör': e.x,
       ...devreye(e.v),
-      'FY26 toplam': e.q,
-      'FY26 segment': e.f,
+      ...(isSalesHidden() ? {} : { 'FY26 toplam': e.q, 'FY26 segment': e.f }),
       'Ziyaret sayısı': v?.count || 0,
       'Son ziyaret': v?.last || '',
       'Konum kayıtlı': located.has(e.i) ? 'Evet' : 'Hayır',

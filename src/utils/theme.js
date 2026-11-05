@@ -34,14 +34,14 @@ export function useTheme() {
   return { pref, effective: effective(pref), setPref: setThemePref };
 }
 
-// Cam (glass) görünüm denemesi: adres çubuğunda ?glass=1 / ?glass=0 ile bu cihazda açılır/kapanır
+// Cam (glass) görünüm: varsayılan açık. Adres çubuğunda ?glass=0 ile bu cihazda kapanır, ?glass=1 ile yeniden açılır.
 const GLASS = 'airfel.glass';
 export function applyGlass() {
   try {
     const q = new URLSearchParams(window.location.search).get('glass');
-    if (q === '1') localStorage.setItem(GLASS, 'on');
-    if (q === '0') localStorage.removeItem(GLASS);
-    if (localStorage.getItem(GLASS) === 'on') document.documentElement.setAttribute('data-glass', 'on');
-    else document.documentElement.removeAttribute('data-glass');
-  } catch { /* yok say */ }
+    if (q === '0') localStorage.setItem(GLASS, 'off');
+    if (q === '1') localStorage.removeItem(GLASS);
+    if (localStorage.getItem(GLASS) === 'off') document.documentElement.removeAttribute('data-glass');
+    else document.documentElement.setAttribute('data-glass', 'on');
+  } catch { document.documentElement.setAttribute('data-glass', 'on'); }
 }

@@ -895,7 +895,7 @@ a.rc-title:hover { color: var(--red); }
 .act-tag.g-gezinti { background: transparent; border: 1px solid var(--border); color: var(--faint); }
 
 /* ==========================================================================
-   CAM (glass) GÖRÜNÜMÜ — deneme. <html data-glass="on"> ile açılır.
+   CAM (glass) GÖRÜNÜMÜ — varsayılan. <html data-glass="on"> (utils/theme.js applyGlass).
    Fikir: renkli, sabit bir zemin; üstünde yarı saydam, bulanık "buzlu cam" yüzeyler.
    Cam sadece üstte duran katmanlarda (menü, çubuklar, kartlar, kutular);
    tablolar, formlar ve yazılar net kalsın diye iç yüzeyler daha opak.

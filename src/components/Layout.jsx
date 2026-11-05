@@ -1,6 +1,6 @@
 // src/components/Layout.jsx
 import { signOut } from 'firebase/auth';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { auth } from '../firebase';
 import { useAuth, ROLE_LABELS } from '../contexts/AuthContext';
@@ -188,6 +188,24 @@ export default function Layout({ children }) {
     </NavLink>
   );
 
+  // Alt çubuk: seçili sekmenin arkasındaki hap, sekme değişince yeni yerine kayar
+  const tabbarRef = useRef(null);
+  const pillRef = useRef(null);
+  useLayoutEffect(() => {
+    const bar = tabbarRef.current; const pill = pillRef.current;
+    if (!bar || !pill) return undefined;
+    const place = () => {
+      const a = bar.querySelector('a.active:not(.tab-add)');
+      if (!a) { pill.style.opacity = '0'; return; }
+      pill.style.opacity = '1';
+      pill.style.transform = `translateX(${a.offsetLeft + 4}px)`;
+      pill.style.width = `${a.offsetWidth - 8}px`;
+    };
+    place();
+    window.addEventListener('resize', place);
+    return () => window.removeEventListener('resize', place);
+  }, [pathname, canRegister, isOwner]);
+
   return (
     <div className="shell">
       {/* Bilgisayar: sol menü */}
@@ -250,7 +268,8 @@ export default function Layout({ children }) {
         <main className="app-main">{children}</main>
       </div>
 
-      <nav className="tabbar" aria-label="Alt menü">
+      <nav className="tabbar" aria-label="Alt menü" ref={tabbarRef}>
+        <span className="tab-pill" aria-hidden="true" ref={pillRef} />
         <Link to="/" className={tab('home')}><HomeIcon />Ana Sayfa</Link>
         <Link to="/dealers" className={tab('dealers')}><StoreIcon />Bayiler</Link>
         {canRegister && (

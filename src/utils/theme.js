@@ -33,3 +33,15 @@ export function useTheme() {
   useEffect(() => { listeners.add(setPref); return () => { listeners.delete(setPref); }; }, []);
   return { pref, effective: effective(pref), setPref: setThemePref };
 }
+
+// Cam (glass) görünüm denemesi: adres çubuğunda ?glass=1 / ?glass=0 ile bu cihazda açılır/kapanır
+const GLASS = 'airfel.glass';
+export function applyGlass() {
+  try {
+    const q = new URLSearchParams(window.location.search).get('glass');
+    if (q === '1') localStorage.setItem(GLASS, 'on');
+    if (q === '0') localStorage.removeItem(GLASS);
+    if (localStorage.getItem(GLASS) === 'on') document.documentElement.setAttribute('data-glass', 'on');
+    else document.documentElement.removeAttribute('data-glass');
+  } catch { /* yok say */ }
+}

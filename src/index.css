@@ -893,3 +893,139 @@ a.rc-title:hover { color: var(--red); }
 .kvkk-check { display: flex; align-items: flex-start; gap: 10px; margin-top: 14px; font-weight: 700; font-size: 14.5px; cursor: pointer; }
 .kvkk-check input { width: 20px; height: 20px; accent-color: var(--red); flex-shrink: 0; margin-top: 1px; }
 .act-tag.g-gezinti { background: transparent; border: 1px solid var(--border); color: var(--faint); }
+
+/* ==========================================================================
+   CAM (glass) GÖRÜNÜMÜ — deneme. <html data-glass="on"> ile açılır.
+   Fikir: renkli, sabit bir zemin; üstünde yarı saydam, bulanık "buzlu cam" yüzeyler.
+   Cam sadece üstte duran katmanlarda (menü, çubuklar, kartlar, kutular);
+   tablolar, formlar ve yazılar net kalsın diye iç yüzeyler daha opak.
+   ========================================================================== */
+
+:root[data-glass="on"] {
+  --glass-bg: rgba(255, 255, 255, 0.58);
+  --glass-bg-strong: rgba(255, 255, 255, 0.78);
+  --glass-line: rgba(255, 255, 255, 0.75);
+  --glass-edge: rgba(30, 30, 30, 0.07);
+  --glass-hi: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --glass-shadow: 0 10px 30px -12px rgba(60, 40, 30, 0.18), 0 2px 6px -2px rgba(60, 40, 30, 0.08);
+  --glass-blur: blur(22px) saturate(170%);
+  --surface-2: rgba(255, 255, 255, 0.55);
+  --border: rgba(30, 30, 30, 0.08);
+  --tabbar-bg: rgba(255, 255, 255, 0.62);
+  --bg: #F3EFEB;
+}
+:root[data-glass="on"][data-theme="dark"] {
+  --glass-bg: rgba(22, 32, 56, 0.48);
+  --glass-bg-strong: rgba(22, 32, 56, 0.72);
+  --glass-line: rgba(255, 255, 255, 0.10);
+  --glass-edge: rgba(0, 0, 0, 0.35);
+  --glass-hi: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 14px 40px -14px rgba(0, 0, 0, 0.7), 0 2px 8px -2px rgba(0, 0, 0, 0.4);
+  --surface-2: rgba(255, 255, 255, 0.05);
+  --border: rgba(255, 255, 255, 0.08);
+  --tabbar-bg: rgba(16, 24, 44, 0.55);
+  --bg: #070C1A;
+}
+
+/* Zemin: yumuşak renk lekeleri (filtre yok, telefonu yormaz) */
+:root[data-glass="on"] body { background: var(--bg); }
+:root[data-glass="on"] #root { position: relative; z-index: 1; }
+:root[data-glass="on"] body::before {
+  content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(40vmax 34vmax at 8% 6%, rgba(220, 40, 60, 0.26), transparent 70%),
+    radial-gradient(38vmax 32vmax at 92% 14%, rgba(60, 120, 230, 0.26), transparent 70%),
+    radial-gradient(44vmax 36vmax at 70% 96%, rgba(255, 160, 80, 0.26), transparent 70%),
+    radial-gradient(30vmax 28vmax at 18% 80%, rgba(120, 90, 220, 0.12), transparent 70%);
+}
+:root[data-glass="on"][data-theme="dark"] body::before {
+  background:
+    radial-gradient(40vmax 34vmax at 6% 4%, rgba(239, 75, 84, 0.26), transparent 70%),
+    radial-gradient(42vmax 34vmax at 96% 18%, rgba(70, 120, 255, 0.28), transparent 70%),
+    radial-gradient(46vmax 38vmax at 66% 100%, rgba(40, 200, 210, 0.14), transparent 70%),
+    radial-gradient(30vmax 26vmax at 20% 78%, rgba(150, 90, 255, 0.16), transparent 70%);
+}
+
+/* Cam yüzey */
+:root[data-glass="on"] :is(.card, .stat, .sidebar, .desk-bar, .app-header, .tabbar, .quick-search, .rc) {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-line);
+  box-shadow: var(--glass-hi), var(--glass-shadow);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+}
+:root[data-glass="on"] :is(.card, .stat, .rc) { outline: 1px solid var(--glass-edge); outline-offset: -1px; }
+:root[data-glass="on"] .card { border-radius: 20px; }
+:root[data-glass="on"] .stat { border-radius: 16px; }
+:root[data-glass="on"] .stat-link:hover { background: var(--glass-bg-strong); }
+
+/* Bilgisayar: menü ve üst çubuk zemine yapışmasın, havada dursun */
+@media (min-width: 1024px) {
+  :root[data-glass="on"] .shell { grid-template-columns: 268px minmax(0, 1fr); }
+  :root[data-glass="on"] .sidebar {
+    margin: 14px 0 14px 14px; height: calc(100vh - 28px); top: 14px; border-radius: 24px;
+  }
+  :root[data-glass="on"] .side-nav a.active { background: var(--glass-bg-strong); box-shadow: var(--glass-hi), 0 4px 14px -6px rgba(185, 23, 36, 0.35); }
+  :root[data-glass="on"][data-theme="dark"] .side-nav a.active { background: rgba(239, 75, 84, 0.16); }
+  :root[data-glass="on"] .side-nav a.active::before { display: none; }
+  :root[data-glass="on"] .side-user { border-top-color: var(--border); }
+  :root[data-glass="on"] .desk-bar {
+    margin: 14px 18px 0; border-radius: 18px; top: 14px; padding: 10px 16px;
+  }
+  :root[data-glass="on"] .quick-search { box-shadow: none; background: var(--surface-2); }
+}
+
+/* Telefon: üst çubuk cam, alt sekmeler yüzen cam hap (iOS tarzı) */
+@media (max-width: 767px) {
+  :root[data-glass="on"] .app-header { border-width: 0 0 1px; box-shadow: none; border-radius: 0; }
+  :root[data-glass="on"] .tabbar {
+    left: 12px; right: 12px; bottom: calc(10px + env(safe-area-inset-bottom)); padding-bottom: 0;
+    border-radius: 28px; overflow: hidden;
+  }
+  :root[data-glass="on"] .tabbar a.active { position: relative; }
+  :root[data-glass="on"] .tabbar a.active::before {
+    content: ''; position: absolute; inset: 7px 10px; border-radius: 20px; z-index: -1;
+    background: var(--red-soft);
+  }
+  :root[data-glass="on"] .app-main { padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 34px); }
+}
+
+/* İç öğeler net kalsın */
+:root[data-glass="on"] :is(.input, .select, textarea) { background: var(--glass-bg-strong); }
+:root[data-glass="on"] .btn-secondary { background: var(--glass-bg-strong); border-color: var(--glass-line); }
+:root[data-glass="on"] :is(.pill, .chip) { background: var(--glass-bg); border-color: var(--glass-line); }
+:root[data-glass="on"] .btn-primary { box-shadow: 0 8px 20px -8px rgba(185, 23, 36, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.25); }
+
+/* Hareket azaltma istenen ya da zayıf cihazlarda bulanıklığı kapat (renk ve saydamlık kalır) */
+@media (prefers-reduced-transparency: reduce) {
+  :root[data-glass="on"] :is(.card, .stat, .sidebar, .desk-bar, .app-header, .tabbar, .rc) {
+    -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--glass-bg-strong);
+  }
+}
+/* Uzun listelerde (kayıt kartları) bulanıklık telefonda kaydırmayı yavaşlatmasın */
+@media (max-width: 767px) {
+  :root[data-glass="on"] .rc { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--glass-bg-strong); }
+}
+/* Kart içindeki küçük kutular: kartın camından biraz daha parlak */
+:root[data-glass="on"] :is(.hero-kpi, .mini-stats a) {
+  background: var(--glass-bg-strong); border-color: var(--glass-line); box-shadow: var(--glass-hi);
+}
+:root[data-glass="on"][data-theme="dark"] :is(.hero-kpi, .mini-stats a) { background: rgba(255, 255, 255, 0.05); }
+:root[data-glass="on"] .logout-btn { background: transparent; }
+/* Alt sekme çubuğu: etiketler okunsun diye daha yoğun cam */
+@media (max-width: 767px) {
+  :root[data-glass="on"] .tabbar { background: rgba(255, 255, 255, 0.74); -webkit-backdrop-filter: blur(28px) saturate(180%); backdrop-filter: blur(28px) saturate(180%); }
+  :root[data-glass="on"][data-theme="dark"] .tabbar { background: rgba(14, 21, 40, 0.72); }
+}
+/* Ana sayfa kartları */
+:root[data-glass="on"] :is(.hcard, .home-hero, .home-action:not(.home-action-primary)) {
+  background: var(--glass-bg); border: 1px solid var(--glass-line);
+  box-shadow: var(--glass-hi), var(--glass-shadow);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+  outline: 1px solid var(--glass-edge); outline-offset: -1px; border-radius: 22px;
+}
+:root[data-glass="on"] .home-hero { background: linear-gradient(120deg, var(--red-soft), transparent 55%), var(--glass-bg); }
+@media (max-width: 767px) {
+  :root[data-glass="on"] .tabbar { background: rgba(255, 255, 255, 0.84); }
+  :root[data-glass="on"][data-theme="dark"] .tabbar { background: rgba(14, 21, 40, 0.80); }
+}
+:root[data-glass="on"] .side-user .role-chip { white-space: nowrap; }

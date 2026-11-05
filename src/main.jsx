@@ -6,10 +6,11 @@ import '@fontsource/nunito/700.css'
 import '@fontsource/nunito/800.css'
 import './index.css'
 import App from './App.jsx'
-import { applyTheme } from './utils/theme'
+import { applyGlass, applyTheme } from './utils/theme'
 
 // Tema, ilk çizimden önce uygulanır (açılışta beyaz parlama olmasın)
 applyTheme()
+applyGlass()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
